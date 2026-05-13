@@ -1,0 +1,399 @@
+/* Device backup — thème applicatif (après Bootstrap) */
+:root {
+  --bs-primary: #0d9488;
+  --bs-primary-rgb: 13, 148, 136;
+  --bs-link-color: #0f766e;
+  --bs-link-hover-color: #115e59;
+  --app-bg: #f1f5f9;
+  --app-bg-accent: #e2e8f0;
+  --app-surface: #ffffff;
+  --app-text: #0f172a;
+  --app-text-muted: #64748b;
+  --app-border: rgba(15, 23, 42, 0.08);
+  --app-border-strong: rgba(15, 23, 42, 0.12);
+  --app-nav-from: #0f172a;
+  --app-nav-to: #1e293b;
+  --app-accent: #0d9488;
+  --app-accent-hover: #0f766e;
+  --app-radius: 0.75rem;
+  --app-radius-lg: 1rem;
+  --app-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 32px rgba(15, 23, 42, 0.06);
+  --app-shadow-hover: 0 4px 12px rgba(15, 23, 42, 0.08), 0 16px 48px rgba(15, 23, 42, 0.08);
+  --app-font: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Roboto", "Helvetica Neue", Arial, sans-serif;
+}
+
+.app-body {
+  font-family: var(--app-font);
+  color: var(--app-text);
+  background-color: var(--app-bg);
+  background-image:
+    radial-gradient(ellipse 120% 80% at 100% -20%, rgba(13, 148, 136, 0.12), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 0% 100%, rgba(30, 64, 175, 0.08), transparent 45%);
+  background-attachment: fixed;
+}
+
+.app-body.app-body--auth {
+  background-image:
+    radial-gradient(ellipse 100% 80% at 50% -30%, rgba(13, 148, 136, 0.18), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 100%, rgba(30, 58, 138, 0.12), transparent 50%),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+/* Navigation */
+.app-navbar {
+  background: linear-gradient(135deg, var(--app-nav-from) 0%, var(--app-nav-to) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.25);
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+
+.app-navbar .navbar-brand {
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: #f8fafc !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-navbar .navbar-brand:hover {
+  color: #fff !important;
+}
+
+.app-brand-mark {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(145deg, rgba(13, 148, 136, 0.35), rgba(13, 148, 136, 0.1));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.app-navbar .nav-link,
+.app-navbar .btn-link.nav-link {
+  color: rgba(248, 250, 252, 0.88) !important;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.app-navbar .nav-link:hover,
+.app-navbar .btn-link.nav-link:hover {
+  color: #fff !important;
+}
+
+.app-navbar .navbar-text {
+  font-size: 0.875rem;
+}
+
+.app-navbar .btn-logout {
+  color: rgba(248, 250, 252, 0.88) !important;
+  font-weight: 500;
+  font-size: 0.9rem;
+  padding: 0.35rem 0.75rem !important;
+  border-radius: 0.5rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.app-navbar .btn-logout:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff !important;
+}
+
+/* Contenu principal */
+.app-main {
+  max-width: 1280px;
+}
+
+.app-page-header {
+  margin-bottom: 1.75rem;
+}
+
+.app-page-title {
+  font-size: clamp(1.35rem, 2.5vw, 1.6rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--app-text);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.app-page-sub {
+  font-size: 0.9375rem;
+  color: var(--app-text-muted);
+  margin-top: 0.35rem;
+  max-width: 42rem;
+}
+
+/* Cartes génériques */
+.app-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow);
+}
+
+.app-card .card-header {
+  background: transparent;
+  border-bottom: 1px solid var(--app-border);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--app-radius-lg) var(--app-radius-lg) 0 0;
+}
+
+/* Cartes équipement (grille) */
+.equipment-card-wrap {
+  display: block;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+}
+
+.equipment-card-wrap:hover,
+.equipment-card-wrap:focus-visible {
+  color: inherit;
+  outline: none;
+}
+
+.equipment-card-wrap:focus-visible .equipment-card {
+  box-shadow: var(--app-shadow-hover);
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+.equipment-card {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--app-border) !important;
+  border-radius: var(--app-radius-lg) !important;
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.equipment-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--app-accent), #2563eb);
+  opacity: 0.85;
+}
+
+.equipment-card-wrap:hover .equipment-card {
+  transform: translateY(-3px);
+  box-shadow: var(--app-shadow-hover);
+  border-color: var(--app-border-strong) !important;
+}
+
+.equipment-card .card-body {
+  padding: 1.25rem 1.25rem 0.75rem;
+}
+
+.equipment-card .card-footer {
+  padding: 0.75rem 1.25rem 1.15rem;
+  font-weight: 500;
+  color: var(--app-accent) !important;
+  font-size: 0.8125rem;
+  letter-spacing: 0.01em;
+}
+
+.equipment-card .badge {
+  font-weight: 600;
+  font-size: 0.6875rem;
+  padding: 0.35em 0.6em;
+  letter-spacing: 0.02em;
+}
+
+.equipment-card .card-title {
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.35rem;
+}
+
+.equipment-card .equipment-host {
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  font-size: 0.8125rem;
+  color: var(--app-text-muted);
+}
+
+/* Fil d'Ariane */
+.app-breadcrumb {
+  --bs-breadcrumb-divider: "›";
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  padding: 0.5rem 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.app-breadcrumb .breadcrumb-item a {
+  color: var(--app-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.app-breadcrumb .breadcrumb-item a:hover {
+  text-decoration: underline;
+}
+
+.app-breadcrumb .breadcrumb-item.active {
+  color: var(--app-text-muted);
+  font-weight: 500;
+}
+
+/* Détail équipement */
+.app-meta-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--app-text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.app-code {
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  font-size: 0.875rem;
+  background: #f1f5f9;
+  border: 1px solid var(--app-border);
+  border-radius: 0.375rem;
+  padding: 0.2rem 0.45rem;
+}
+
+.app-pre {
+  font-size: 0.8125rem;
+  background: #f8fafc;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  padding: 0.75rem 1rem;
+  max-height: 12rem;
+  overflow: auto;
+}
+
+.app-btn-accent {
+  --bs-btn-bg: var(--app-accent);
+  --bs-btn-border-color: var(--app-accent);
+  --bs-btn-hover-bg: var(--app-accent-hover);
+  --bs-btn-hover-border-color: var(--app-accent-hover);
+  --bs-btn-active-bg: var(--app-accent-hover);
+  --bs-btn-active-border-color: var(--app-accent-hover);
+  font-weight: 600;
+  padding-block: 0.6rem;
+  border-radius: 0.5rem;
+}
+
+.app-table-wrap .table {
+  --bs-table-hover-bg: rgba(13, 148, 136, 0.04);
+}
+
+.app-table-wrap thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--app-text-muted);
+  border-bottom-width: 1px;
+  white-space: nowrap;
+}
+
+.app-table-wrap tbody td {
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+.app-empty-state {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: var(--app-text-muted);
+  font-size: 0.9375rem;
+}
+
+.app-type-chip {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid var(--app-border);
+}
+
+/* Auth */
+.app-auth-wrap {
+  min-height: calc(100vh - 140px);
+  display: flex;
+  align-items: center;
+  padding-block: 2rem;
+}
+
+.app-auth-card {
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-hover);
+  background: var(--app-surface);
+  overflow: hidden;
+}
+
+.app-auth-card .card-body {
+  padding: 2rem 2rem 1.75rem;
+}
+
+@media (min-width: 576px) {
+  .app-auth-card .card-body {
+    padding: 2.25rem 2.5rem;
+  }
+}
+
+.app-auth-title {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-size: 1.35rem;
+}
+
+.app-auth-lead {
+  font-size: 0.9rem;
+  color: var(--app-text-muted);
+}
+
+.app-auth-card .form-control {
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  border-color: var(--app-border-strong);
+}
+
+.app-auth-card .form-control:focus {
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 0.2rem rgba(13, 148, 136, 0.2);
+}
+
+.app-auth-card .form-label {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--app-text);
+}
+
+/* Footer */
+.app-footer {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--app-border);
+  color: var(--app-text-muted);
+  font-size: 0.8125rem;
+}
+
+/* Alertes */
+.app-main .alert {
+  border-radius: var(--app-radius);
+  border: 1px solid transparent;
+}

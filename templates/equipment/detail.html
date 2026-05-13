@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}{{ equipment.name }} — Device backup{% endblock %}
+
+{% block content %}
+<nav aria-label="Fil d'Ariane" class="mb-4">
+  <ol class="breadcrumb app-breadcrumb mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Équipements</a></li>
+    <li class="breadcrumb-item active text-truncate" aria-current="page" style="max-width: 18rem;">{{ equipment.name }}</li>
+  </ol>
+</nav>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card app-card border-0 h-100">
+      <div class="card-body p-4">
+        <div class="app-meta-label">Équipement</div>
+        <h1 class="app-page-title mb-3" style="font-size: 1.35rem;">{{ equipment.name }}</h1>
+        <div class="mb-3">
+          <div class="app-meta-label">Type</div>
+          <span class="app-type-chip">{{ equipment.equipment_type.name }}</span>
+        </div>
+        {% if equipment.host %}
+          <div class="mb-3">
+            <div class="app-meta-label">Host de management</div>
+            <code class="app-code">{{ equipment.host }}</code>
+          </div>
+        {% endif %}
+        {% if extra_json %}
+          <div class="mb-3">
+            <div class="app-meta-label">Paramètres (JSON)</div>
+            <pre class="app-pre mb-0">{{ extra_json }}</pre>
+          </div>
+        {% endif %}
+        <hr class="my-4 opacity-25">
+        <form method="post" action="{% url 'equipment_backup' equipment.pk %}" class="js-backup-form">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary app-btn-accent w-100">
+            Lancer une sauvegarde
+          </button>
+        </form>
+        <p class="form-text small mt-3 mb-0 text-muted">
+          En production, cette action déclenchera l’appel API via l’adaptateur configuré sur le type d’équipement.
+        </p>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card app-card border-0 h-100">
+      <div class="card-header">Historique des sauvegardes</div>
+      <div class="card-body p-0 app-table-wrap">
+        {% if jobs %}
+          <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+              <thead>
+                <tr>
+                  <th class="ps-4">Date</th>
+                  <th>Statut</th>
+                  <th>Utilisateur</th>
+                  <th class="pe-4">Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for job in jobs %}
+                  <tr>
+                    <td class="text-nowrap small ps-4">{{ job.started_at|date:"d/m/Y H:i" }}</td>
+                    <td>
+                      {% if job.status == 'success' %}
+                        <span class="badge rounded-pill text-bg-success">Réussi</span>
+                      {% elif job.status == 'failed' %}
+                        <span class="badge rounded-pill text-bg-danger">Échoué</span>
+                      {% elif job.status == 'running' %}
+                        <span class="badge rounded-pill text-bg-warning text-dark">En cours</span>
+                      {% else %}
+                        <span class="badge rounded-pill text-bg-secondary">En attente</span>
+                      {% endif %}
+                    </td>
+                    <td class="small">{% if job.triggered_by %}{{ job.triggered_by.username }}{% else %}—{% endif %}</td>
+                    <td class="small text-break pe-4">{{ job.message|default:"—" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="app-empty-state">Aucune sauvegarde enregistrée pour cet équipement.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

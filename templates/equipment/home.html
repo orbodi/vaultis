@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Équipements — Device backup{% endblock %}
+
+{% block content %}
+<header class="app-page-header">
+  <h1 class="app-page-title">Équipements</h1>
+  <p class="app-page-sub mb-0">Vue d’ensemble des actifs — sélectionnez une carte pour consulter les détails et lancer une sauvegarde.</p>
+</header>
+
+{% if equipments %}
+  <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-4">
+    {% for eq in equipments %}
+      <div class="col">
+        <a href="{% url 'equipment_detail' eq.pk %}" class="equipment-card-wrap">
+          <div class="card h-100 border-0 equipment-card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                <span class="badge rounded-pill text-bg-light text-dark border">{{ eq.equipment_type.name }}</span>
+                {% with job=eq.last_backup_job %}
+                  {% if job %}
+                    {% if job.status == 'success' %}
+                      <span class="badge rounded-pill text-bg-success">OK</span>
+                    {% elif job.status == 'failed' %}
+                      <span class="badge rounded-pill text-bg-danger">Erreur</span>
+                    {% elif job.status == 'running' %}
+                      <span class="badge rounded-pill text-bg-warning text-dark">En cours</span>
+                    {% else %}
+                      <span class="badge rounded-pill text-bg-secondary">—</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="badge rounded-pill text-bg-light text-secondary border">Jamais</span>
+                  {% endif %}
+                {% endwith %}
+              </div>
+              <h2 class="card-title">{{ eq.name }}</h2>
+              {% if eq.host %}
+                <p class="equipment-host mb-0">{{ eq.host }}</p>
+              {% else %}
+                <p class="small text-muted mb-0">Aucun host renseigné</p>
+              {% endif %}
+            </div>
+            <div class="card-footer border-0">
+              Détails et sauvegarde
+            </div>
+          </div>
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  {% if user.is_staff %}
+    <div class="app-card p-4 p-md-5 text-center">
+      <p class="text-muted mb-3 mb-md-4">Aucun équipement pour le moment. Créez des entrées depuis l’administration pour alimenter cette grille.</p>
+      <a href="{% url 'admin:equipment_equipment_changelist' %}" class="btn btn-primary app-btn-accent px-4">Ouvrir l’administration</a>
+    </div>
+  {% else %}
+    <div class="app-card app-empty-state">
+      Aucun équipement pour le moment. Contactez un administrateur pour en ajouter.
+    </div>
+  {% endif %}
+{% endif %}
+{% endblock %}
