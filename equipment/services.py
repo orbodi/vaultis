@@ -18,9 +18,12 @@ def run_backup_job(job: BackupJob) -> None:
 
     # TODO: brancher l'adaptateur (F5, Palo, etc.)
     job.status = BackupJob.Status.SUCCESS
+    target_host = (
+        job.equipment_host.address if job.equipment_host_id else "—"
+    )
     job.message = (
         "Sauvegarde simulée : brancher l'API de l'équipement "
-        f"({job.equipment.equipment_type.slug})."
+        f"({job.equipment.equipment_type.slug}), host cible : {target_host}."
     )
     job.finished_at = timezone.now()
     job.save(update_fields=["status", "message", "finished_at"])

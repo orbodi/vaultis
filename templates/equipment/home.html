@@ -34,11 +34,18 @@
                 {% endwith %}
               </div>
               <h2 class="card-title">{{ eq.name }}</h2>
-              {% if eq.host %}
-                <p class="equipment-host mb-0">{{ eq.host }}</p>
-              {% else %}
-                <p class="small text-muted mb-0">Aucun host renseigné</p>
-              {% endif %}
+              {% with primary=eq.hosts.all|first %}
+                {% if primary %}
+                  <p class="equipment-host mb-0">
+                    {{ primary.address }}
+                    {% if eq.hosts.all|length > 1 %}
+                      <span class="text-muted small">(+{{ eq.hosts.all|length|add:"-1" }} autres)</span>
+                    {% endif %}
+                  </p>
+                {% else %}
+                  <p class="small text-muted mb-0">Aucun host renseigné</p>
+                {% endif %}
+              {% endwith %}
             </div>
             <div class="card-footer border-0">
               Détails et sauvegarde

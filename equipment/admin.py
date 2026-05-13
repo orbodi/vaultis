@@ -1,9 +1,9 @@
 from django.contrib import admin
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Prefetch
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from .models import BackupJob, Equipment, EquipmentType
+from .models import BackupJob, Equipment, EquipmentHost, EquipmentType
 
 
 @admin.register(EquipmentType)
@@ -45,9 +45,17 @@ class BackupJobInline(admin.TabularInline):
     can_delete = False
     max_num = 30
     show_change_link = True
-    fields = ("status", "started_at", "finished_at", "triggered_by", "message_short")
+    fields = (
+        "status",
+        "equipment_host",
+        "started_at",
+        "finished_at",
+        "triggered_by",
+        "message_short",
+    )
     readonly_fields = (
         "status",
+        "equipment_host",
         "started_at",
         "finished_at",
         "triggered_by",
@@ -70,9 +78,16 @@ class BackupJobInline(admin.TabularInline):
         return (
             super()
             .get_queryset(request)
-            .select_related("triggered_by")
+            .select_related("triggered_by", "equipment_host")
             .order_by("-started_at")
         )
+
+
+class EquipmentHostInline(admin.TabularInline):
+    model = EquipmentHost
+    extra = 1
+    ordering = ("sort_order", "pk")
+    fields = ("label", "address", "sort_order")
 
 
 @admin.register(Equipment)
@@ -80,30 +95,23 @@ class EquipmentAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "equipment_type",
-        "host",
+        "hosts_summary",
         "last_backup_column",
         "updated_at",
     )
     list_display_links = ("name",)
     list_filter = ("equipment_type", "created_at", "updated_at")
-    search_fields = ("name", "host")
+    search_fields = ("name", "hosts__address", "hosts__label")
     ordering = ("name",)
     date_hierarchy = "created_at"
     autocomplete_fields = ("equipment_type",)
     readonly_fields = ("created_at", "updated_at", "last_backup_detail")
-    inlines = (BackupJobInline,)
+    inlines = (EquipmentHostInline, BackupJobInline)
     fieldsets = (
         (
             "Identification",
             {
                 "fields": ("name", "equipment_type"),
-            },
-        ),
-        (
-            "Connexion",
-            {
-                "fields": ("host",),
-                "description": "FQDN ou IP de management utilisée par les adaptateurs API.",
             },
         ),
         (
@@ -121,6 +129,17 @@ class EquipmentAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+    @admin.display(description="Hosts")
+    def hosts_summary(self, obj):
+        if not obj.pk:
+            return "—"
+        all_hosts = list(obj.hosts.all())
+        if not all_hosts:
+            return format_html('<span style="color:#94a3b8;">—</span>')
+        if len(all_hosts) <= 2:
+            return ", ".join(h.address for h in all_hosts)
+        return ", ".join(h.address for h in all_hosts[:2]) + f" (+{len(all_hosts) - 2})"
 
     @admin.display(description="Dernière sauvegarde")
     def last_backup_column(self, obj):
@@ -161,7 +180,17 @@ class EquipmentAdmin(admin.ModelAdmin):
         return mark_safe("<br>".join(lines))
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related("equipment_type")
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("equipment_type")
+            .prefetch_related(
+                Prefetch(
+                    "hosts",
+                    queryset=EquipmentHost.objects.order_by("sort_order", "pk"),
+                )
+            )
+        )
 
     def changelist_view(self, request, extra_context=None):
         response = super().changelist_view(request, extra_context=extra_context)
@@ -201,6 +230,7 @@ class BackupJobAdmin(admin.ModelAdmin):
         "id",
         "equipment",
         "equipment_type",
+        "backup_host",
         "status_badge",
         "started_at",
         "finished_at",
@@ -208,12 +238,18 @@ class BackupJobAdmin(admin.ModelAdmin):
     )
     list_display_links = ("id", "equipment")
     list_filter = ("status", "equipment__equipment_type", "started_at")
-    search_fields = ("equipment__name", "equipment__host", "message")
+    search_fields = (
+        "equipment__name",
+        "equipment_host__address",
+        "equipment_host__label",
+        "message",
+    )
     ordering = ("-started_at",)
     date_hierarchy = "started_at"
     autocomplete_fields = ("equipment", "triggered_by")
     readonly_fields = (
         "equipment",
+        "equipment_host",
         "status",
         "message",
         "started_at",
@@ -222,13 +258,19 @@ class BackupJobAdmin(admin.ModelAdmin):
     )
 
     fieldsets = (
-        (None, {"fields": ("equipment", "status", "triggered_by")}),
+        (None, {"fields": ("equipment", "equipment_host", "status", "triggered_by")}),
         ("Résultat", {"fields": ("message", "started_at", "finished_at")}),
     )
 
     @admin.display(description="Type")
     def equipment_type(self, obj):
         return obj.equipment.equipment_type.name
+
+    @admin.display(description="Host cible")
+    def backup_host(self, obj):
+        if obj.equipment_host_id:
+            return obj.equipment_host.address
+        return format_html('<span style="color:#94a3b8;">—</span>')
 
     @admin.display(description="Statut")
     def status_badge(self, obj):
@@ -252,7 +294,12 @@ class BackupJobAdmin(admin.ModelAdmin):
         return (
             super()
             .get_queryset(request)
-            .select_related("equipment", "equipment__equipment_type", "triggered_by")
+            .select_related(
+                "equipment",
+                "equipment__equipment_type",
+                "equipment_host",
+                "triggered_by",
+            )
         )
 
 

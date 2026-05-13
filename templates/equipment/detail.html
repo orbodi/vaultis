@@ -20,10 +20,21 @@
           <div class="app-meta-label">Type</div>
           <span class="app-type-chip">{{ equipment.equipment_type.name }}</span>
         </div>
-        {% if equipment.host %}
+        {% if equipment.hosts.all %}
           <div class="mb-3">
-            <div class="app-meta-label">Host de management</div>
-            <code class="app-code">{{ equipment.host }}</code>
+            <div class="app-meta-label">Hosts de management</div>
+            <ul class="list-unstyled small mb-0">
+              {% for h in equipment.hosts.all %}
+                <li class="mb-1">
+                  <code class="app-code">{{ h.address }}</code>
+                  {% if h.label %}<span class="text-muted"> — {{ h.label }}</span>{% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% else %}
+          <div class="alert alert-warning py-2 px-3 small mb-3 mb-0" role="status">
+            Aucun host configuré. Ajoutez des hosts depuis l’administration pour pouvoir lancer une sauvegarde.
           </div>
         {% endif %}
         {% if extra_json %}
@@ -35,7 +46,31 @@
         <hr class="my-4 opacity-25">
         <form method="post" action="{% url 'equipment_backup' equipment.pk %}" class="js-backup-form">
           {% csrf_token %}
-          <button type="submit" class="btn btn-primary app-btn-accent w-100">
+          {% if equipment.hosts.all %}
+            <div class="mb-3">
+              <label class="form-label app-meta-label" for="id_equipment_host_id">Host cible</label>
+              <select
+                name="equipment_host_id"
+                id="id_equipment_host_id"
+                class="form-select"
+                required
+                aria-describedby="host-help"
+              >
+                {% if equipment.hosts.all|length > 1 %}
+                  <option value="" disabled selected>Choisir un host…</option>
+                {% endif %}
+                {% for h in equipment.hosts.all %}
+                  <option value="{{ h.pk }}" {% if equipment.hosts.all|length == 1 %}selected{% endif %}>
+                    {{ h.select_display }}
+                  </option>
+                {% endfor %}
+              </select>
+              <p id="host-help" class="form-text small mb-0 text-muted">
+                La sauvegarde sera exécutée contre l’adresse sélectionnée.
+              </p>
+            </div>
+          {% endif %}
+          <button type="submit" class="btn btn-primary app-btn-accent w-100" {% if not equipment.hosts.all %}disabled{% endif %}>
             Lancer une sauvegarde
           </button>
         </form>
@@ -56,6 +91,7 @@
                 <tr>
                   <th class="ps-4">Date</th>
                   <th>Statut</th>
+                  <th>Host</th>
                   <th>Utilisateur</th>
                   <th class="pe-4">Message</th>
                 </tr>
@@ -73,6 +109,13 @@
                         <span class="badge rounded-pill text-bg-warning text-dark">En cours</span>
                       {% else %}
                         <span class="badge rounded-pill text-bg-secondary">En attente</span>
+                      {% endif %}
+                    </td>
+                    <td class="small text-nowrap">
+                      {% if job.equipment_host %}
+                        <code class="small">{{ job.equipment_host.address }}</code>
+                      {% else %}
+                        —
                       {% endif %}
                     </td>
                     <td class="small">{% if job.triggered_by %}{{ job.triggered_by.username }}{% else %}—{% endif %}</td>

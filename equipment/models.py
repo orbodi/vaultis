@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.db import models
-from django.utils import timezone
 
 
 class EquipmentType(models.Model):
@@ -31,11 +30,6 @@ class Equipment(models.Model):
         on_delete=models.PROTECT,
         related_name="equipments",
     )
-    host = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="FQDN ou adresse IP de management.",
-    )
     extra = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -52,6 +46,41 @@ class Equipment(models.Model):
         return self.backup_jobs.order_by("-started_at").first()
 
 
+class EquipmentHost(models.Model):
+    """Point de management (FQDN / IP) rattaché à un équipement — plusieurs par actif."""
+
+    equipment = models.ForeignKey(
+        Equipment,
+        on_delete=models.CASCADE,
+        related_name="hosts",
+    )
+    label = models.CharField(
+        max_length=128,
+        blank=True,
+        help_text="Libellé dans les listes (ex. DC principal, DR).",
+    )
+    address = models.CharField(
+        max_length=255,
+        help_text="FQDN ou adresse IP de management.",
+    )
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "pk"]
+        verbose_name = "Host de management"
+        verbose_name_plural = "Hosts de management"
+
+    def __str__(self) -> str:
+        if self.label.strip():
+            return f"{self.label.strip()} ({self.address})"
+        return self.address
+
+    def select_display(self) -> str:
+        if self.label.strip():
+            return f"{self.label.strip()} — {self.address}"
+        return self.address
+
+
 class BackupJob(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "En attente"
@@ -63,6 +92,14 @@ class BackupJob(models.Model):
         Equipment,
         on_delete=models.CASCADE,
         related_name="backup_jobs",
+    )
+    equipment_host = models.ForeignKey(
+        "EquipmentHost",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="backup_jobs",
+        help_text="Host ciblé pour ce job (si applicable).",
     )
     status = models.CharField(
         max_length=16,
