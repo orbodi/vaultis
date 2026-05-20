@@ -4,8 +4,7 @@
 
 {% block content %}
 <header class="app-page-header">
-  <h1 class="app-page-title">Équipements</h1>
-  <p class="app-page-sub mb-0">Vue d’ensemble des actifs — sélectionnez une carte pour consulter les détails et lancer une sauvegarde.</p>
+  <h1 class="app-page-title mb-0">Équipements</h1>
 </header>
 
 {% if equipments %}
@@ -15,37 +14,8 @@
         <a href="{% url 'equipment_detail' eq.pk %}" class="equipment-card-wrap">
           <div class="card h-100 border-0 equipment-card">
             <div class="card-body">
-              <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
-                <span class="badge rounded-pill text-bg-light text-dark border">{{ eq.equipment_type.name }}</span>
-                {% with job=eq.last_backup_job %}
-                  {% if job %}
-                    {% if job.status == 'success' %}
-                      <span class="badge rounded-pill text-bg-success">OK</span>
-                    {% elif job.status == 'failed' %}
-                      <span class="badge rounded-pill text-bg-danger">Erreur</span>
-                    {% elif job.status == 'running' %}
-                      <span class="badge rounded-pill text-bg-warning text-dark">En cours</span>
-                    {% else %}
-                      <span class="badge rounded-pill text-bg-secondary">—</span>
-                    {% endif %}
-                  {% else %}
-                    <span class="badge rounded-pill text-bg-light text-secondary border">Jamais</span>
-                  {% endif %}
-                {% endwith %}
-              </div>
-              <h2 class="card-title">{{ eq.name }}</h2>
-              {% with primary=eq.hosts.all|first %}
-                {% if primary %}
-                  <p class="equipment-host mb-0">
-                    {{ primary.address }}
-                    {% if eq.hosts.all|length > 1 %}
-                      <span class="text-muted small">(+{{ eq.hosts.all|length|add:"-1" }} autres)</span>
-                    {% endif %}
-                  </p>
-                {% else %}
-                  <p class="small text-muted mb-0">Aucun host renseigné</p>
-                {% endif %}
-              {% endwith %}
+              <span class="badge rounded-pill text-bg-light text-dark border mb-3">{{ eq.equipment_type.name }}</span>
+              <h2 class="card-title mb-0">{{ eq.name }}</h2>
             </div>
             <div class="card-footer border-0">
               Détails et sauvegarde

@@ -46,6 +46,12 @@
   box-shadow: 0 4px 24px rgba(15, 23, 42, 0.25);
   padding-top: 0.65rem;
   padding-bottom: 0.65rem;
+  overflow: visible;
+}
+
+.app-navbar > .container {
+  overflow: visible;
+  flex-wrap: nowrap;
 }
 
 .app-navbar .navbar-brand {
@@ -102,6 +108,90 @@
 .app-navbar .btn-logout:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff !important;
+}
+
+.app-navbar .app-profile-dropdown {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.app-navbar .app-profile-dropdown .dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  left: auto;
+  margin: 0;
+  z-index: 1050;
+}
+
+.app-navbar .app-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  margin: 0;
+  border: 2px solid #5eead4;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  line-height: 0;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.app-navbar .app-profile-btn:hover,
+.app-navbar .app-profile-btn:focus,
+.app-navbar .app-profile-btn:focus-visible,
+.app-navbar .app-profile-btn.show {
+  background: #ffffff;
+  border-color: #99f6e4;
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(94, 234, 212, 0.45),
+    0 4px 14px rgba(0, 0, 0, 0.4);
+  transform: scale(1.05);
+}
+
+.app-profile-menu {
+  min-width: 11rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  padding: 0.35rem 0;
+}
+
+.app-profile-menu .dropdown-header {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--app-text);
+  padding-bottom: 0.35rem;
+}
+
+.app-profile-menu .dropdown-item {
+  font-size: 0.9rem;
+  padding: 0.45rem 1rem;
+}
+
+.app-profile-menu .dropdown-item:hover,
+.app-profile-menu .dropdown-item:focus {
+  background-color: rgba(13, 148, 136, 0.08);
+  color: var(--app-accent-hover);
+}
+
+.app-profile-menu form {
+  margin: 0;
+}
+
+.app-profile-menu form .dropdown-item {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
 }
 
 /* Contenu principal */

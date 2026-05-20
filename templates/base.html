@@ -10,8 +10,8 @@
   {% block extra_css %}{% endblock %}
 </head>
 <body class="app-body d-flex flex-column min-vh-100 {% block body_extra_class %}{% endblock %}">
-  <nav class="navbar navbar-expand-lg navbar-dark app-navbar mb-0">
-    <div class="container app-main px-3 px-lg-4">
+  <nav class="navbar navbar-dark app-navbar mb-0">
+    <div class="container app-main d-flex flex-wrap align-items-center justify-content-between px-3 px-lg-4">
       <a class="navbar-brand" href="{% if user.is_authenticated %}{% url 'home' %}{% else %}{% url 'login' %}{% endif %}">
         <span class="app-brand-mark" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -22,30 +22,37 @@
         <span>Device backup</span>
       </a>
       {% if user.is_authenticated %}
-      <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navMain"
-              aria-controls="navMain" aria-expanded="false" aria-label="Menu">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navMain">
-        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
-          {% if user.is_superuser %}
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'admin:index' %}">espace admin</a>
-          </li>
-          {% endif %}
-          <li class="nav-item">
-            <span class="navbar-text text-white-50 px-lg-2">{{ user.username }}</span>
-          </li>
-          <li class="nav-item">
-            <form method="post" action="{% url 'logout' %}" class="d-inline">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-link btn-logout text-decoration-none">
-                Déconnexion
-              </button>
-            </form>
-          </li>
-        </ul>
-      </div>
+        <div class="dropdown app-profile-dropdown">
+          <button
+            type="button"
+            class="app-profile-btn"
+            id="navProfileMenu"
+            data-bs-toggle="dropdown"
+            data-bs-display="static"
+            aria-expanded="false"
+            aria-label="Menu du compte"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" fill="#0f172a"/>
+              <path d="M4 20c0-3.866 3.582-7 8-7s8 3.134 8 7" fill="#0f172a"/>
+            </svg>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end app-profile-menu shadow" aria-labelledby="navProfileMenu">
+            <li><h6 class="dropdown-header">{{ user.username }}</h6></li>
+            {% if user.is_staff %}
+            <li>
+              <a class="dropdown-item" href="{% url 'admin:index' %}">Espace admin</a>
+            </li>
+            {% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="dropdown-item">Déconnexion</button>
+              </form>
+            </li>
+          </ul>
+        </div>
       {% endif %}
     </div>
   </nav>
