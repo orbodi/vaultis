@@ -1,5 +1,3 @@
-import json
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch
@@ -37,16 +35,13 @@ def equipment_detail(request, pk: int):
         "triggered_by",
         "equipment_host",
     )[:20]
-    extra_json = ""
-    if equipment.extra:
-        extra_json = json.dumps(equipment.extra, indent=2, ensure_ascii=False)
     return render(
         request,
         "equipment/detail.html",
         {
             "equipment": equipment,
             "jobs": jobs,
-            "extra_json": extra_json,
+            "requires_api_credentials": equipment.equipment_type.slug == "nitrokey",
         },
     )
 
@@ -60,21 +55,32 @@ def equipment_backup(request, pk: int):
         "pk",
     )
     if not host_qs.exists():
-        messages.error(
-            request,
-            "Aucun host de management n’est configuré pour cet équipement.",
-        )
+        messages.error(request, "Aucun host configuré.")
         return redirect("equipment_detail", pk=equipment.pk)
     raw_host_id = request.POST.get("equipment_host_id", "").strip()
     if not raw_host_id.isdigit():
-        messages.error(request, "Veuillez sélectionner un host de management.")
+        messages.error(request, "Host requis.")
         return redirect("equipment_detail", pk=equipment.pk)
     equipment_host = get_object_or_404(host_qs, pk=int(raw_host_id))
+
+    credentials = None
+    if equipment.equipment_type.slug == "nitrokey":
+        username = request.POST.get("api_username", "").strip()
+        password = request.POST.get("api_password", "")
+        if not username or not password:
+            messages.error(request, "Identifiants API requis.")
+            return redirect("equipment_detail", pk=equipment.pk)
+        credentials = {"username": username, "password": password}
+
     job = BackupJob.objects.create(
         equipment=equipment,
         equipment_host=equipment_host,
         triggered_by=request.user,
     )
-    run_backup_job(job)
-    messages.success(request, "Sauvegarde terminée (mode démo).")
+    run_backup_job(job, credentials=credentials)
+    job.refresh_from_db()
+    if job.status == BackupJob.Status.SUCCESS:
+        messages.success(request, job.message or "Sauvegarde réussie.")
+    else:
+        messages.error(request, job.message or "Échec de la sauvegarde.")
     return redirect("equipment_detail", pk=equipment.pk)

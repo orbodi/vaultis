@@ -487,3 +487,30 @@
   border-radius: var(--app-radius);
   border: 1px solid transparent;
 }
+
+/* Modal de confirmation */
+.app-modal {
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-hover);
+}
+
+.app-modal .modal-title {
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.js-backup-form .invalid-feedback.js-field-error {
+  display: none;
+}
+
+.js-backup-form .invalid-feedback.js-field-error.d-block {
+  display: block;
+}
+
+.modal-backdrop {
+  z-index: 1055;
+}
+
+#backupConfirmModal {
+  z-index: 1060;
+}

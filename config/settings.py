@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 from django.contrib.messages import constants as message_constants
 
@@ -86,12 +87,39 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+
+def _build_database_config():
+    database_url = os.environ.get("DATABASE_URL", "").strip()
+    if database_url:
+        parsed = urlparse(database_url)
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": unquote(parsed.path.lstrip("/")),
+            "USER": unquote(parsed.username or ""),
+            "PASSWORD": unquote(parsed.password or ""),
+            "HOST": parsed.hostname or "",
+            "PORT": parsed.port or 5432,
+        }
+
+    postgres_host = os.environ.get("POSTGRES_HOST", "").strip()
+    if postgres_host:
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("POSTGRES_DB", "vaultis"),
+            "USER": os.environ.get("POSTGRES_USER", "vaultis"),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+            "HOST": postgres_host,
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        }
+
+    db_path = os.environ.get("DJANGO_DATABASE_PATH", "").strip()
+    return {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": Path(db_path) if db_path else BASE_DIR / "db.sqlite3",
     }
-}
+
+
+DATABASES = {"default": _build_database_config()}
 
 
 # Password validation
@@ -148,3 +176,11 @@ MESSAGE_TAGS = {
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Nitrokey / NetHSM (adaptateur equipment.adapters.nitrokey)
+_backup_root = os.environ.get("NITROKEY_BACKUP_ROOT", "").strip()
+NITROKEY_BACKUP_ROOT = Path(_backup_root) if _backup_root else BASE_DIR / "backups" / "nitrokey"
+NITROKEY_NETHSM_VERIFY_TLS = os.environ.get(
+    "NITROKEY_NETHSM_VERIFY_TLS",
+    "true",
+).lower() in ("1", "true", "yes")

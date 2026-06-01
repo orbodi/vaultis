@@ -86,8 +86,45 @@ class BackupJobInline(admin.TabularInline):
 class EquipmentHostInline(admin.TabularInline):
     model = EquipmentHost
     extra = 1
+    min_num = 0
     ordering = ("sort_order", "pk")
     fields = ("label", "address", "sort_order")
+    show_change_link = True
+    verbose_name = "Host de management"
+    verbose_name_plural = "Hosts de management"
+
+
+@admin.register(EquipmentHost)
+class EquipmentHostAdmin(admin.ModelAdmin):
+    list_display = ("address", "label", "equipment", "equipment_type_name", "sort_order")
+    list_display_links = ("address",)
+    list_filter = ("equipment__equipment_type", "equipment")
+    search_fields = ("address", "label", "equipment__name")
+    ordering = ("equipment__name", "sort_order", "pk")
+    autocomplete_fields = ("equipment",)
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": ("equipment", "label", "address", "sort_order"),
+                "description": (
+                    "FQDN ou IP de management. Le libellé apparaît dans le sélecteur "
+                    "de la fiche équipement."
+                ),
+            },
+        ),
+    )
+
+    @admin.display(description="Type d’équipement", ordering="equipment__equipment_type__name")
+    def equipment_type_name(self, obj):
+        return obj.equipment.equipment_type.name
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("equipment", "equipment__equipment_type")
+        )
 
 
 @admin.register(Equipment)
@@ -112,6 +149,10 @@ class EquipmentAdmin(admin.ModelAdmin):
             "Identification",
             {
                 "fields": ("name", "equipment_type"),
+                "description": (
+                    "Ajoutez un ou plusieurs hosts de management dans la section ci-dessous "
+                    "(libellé, adresse, ordre d’affichage)."
+                ),
             },
         ),
         (

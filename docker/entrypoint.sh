@@ -1,0 +1,38 @@
+#!/bin/sh
+set -e
+
+mkdir -p /app/data/backups/nitrokey
+
+if [ -n "${DATABASE_URL}${POSTGRES_HOST}" ]; then
+  echo "Attente de PostgreSQL…"
+  until python -c "
+import os, sys
+url = os.environ.get('DATABASE_URL', '').strip()
+if not url:
+    user = os.environ.get('POSTGRES_USER', 'vaultis')
+    password = os.environ.get('POSTGRES_PASSWORD', '')
+    host = os.environ.get('POSTGRES_HOST', 'db')
+    port = os.environ.get('POSTGRES_PORT', '5432')
+    name = os.environ.get('POSTGRES_DB', 'vaultis')
+    url = f'postgresql://{user}:{password}@{host}:{port}/{name}'
+import psycopg
+try:
+    psycopg.connect(url).close()
+except Exception:
+    sys.exit(1)
+"; do
+    sleep 1
+  done
+fi
+
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+
+if [ "${DJANGO_DEBUG}" = "true" ] || [ "${DJANGO_DEBUG}" = "1" ]; then
+  exec python manage.py runserver 0.0.0.0:8000
+fi
+
+exec gunicorn config.wsgi:application \
+  --bind 0.0.0.0:8000 \
+  --workers "${GUNICORN_WORKERS:-2}" \
+  --timeout 120

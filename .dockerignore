@@ -1,0 +1,17 @@
+.venv
+venv
+__pycache__
+*.py[cod]
+*.sqlite3
+db.sqlite3
+.env
+.env.local
+staticfiles
+backups
+.git
+.gitignore
+*.md
+.cursor
+terminals
+agent-tools
+agent-transcripts

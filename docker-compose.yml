@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vaultis}
+      POSTGRES_USER: ${POSTGRES_USER:-vaultis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vaultis}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-vaultis} -d ${POSTGRES_DB:-vaultis}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  web:
+    build: .
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings_prod}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-use-a-real-secret-key}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,web}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-vaultis}
+      POSTGRES_USER: ${POSTGRES_USER:-vaultis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vaultis}
+      DATABASE_URL: postgres://${POSTGRES_USER:-vaultis}:${POSTGRES_PASSWORD:-vaultis}@db:5432/${POSTGRES_DB:-vaultis}
+      NITROKEY_BACKUP_ROOT: /app/data/backups/nitrokey
+    volumes:
+      - vaultis_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  vaultis_data:

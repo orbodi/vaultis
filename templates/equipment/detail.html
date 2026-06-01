@@ -10,73 +10,110 @@
   </ol>
 </nav>
 
+{% with host_list=equipment.hosts.all %}
 <div class="row g-4">
   <div class="col-lg-5">
     <div class="card app-card border-0 h-100">
       <div class="card-body p-4">
         <div class="app-meta-label">Équipement</div>
         <h1 class="app-page-title mb-3" style="font-size: 1.35rem;">{{ equipment.name }}</h1>
-        <div class="mb-3">
+        <div class="mb-4">
           <div class="app-meta-label">Type</div>
           <span class="app-type-chip">{{ equipment.equipment_type.name }}</span>
         </div>
-        {% if equipment.hosts.all %}
-          <div class="mb-3">
-            <div class="app-meta-label">Hosts de management</div>
-            <ul class="list-unstyled small mb-0">
-              {% for h in equipment.hosts.all %}
-                <li class="mb-1">
-                  <code class="app-code">{{ h.address }}</code>
-                  {% if h.label %}<span class="text-muted"> — {{ h.label }}</span>{% endif %}
-                </li>
-              {% endfor %}
-            </ul>
-          </div>
-        {% else %}
-          <div class="alert alert-warning py-2 px-3 small mb-3 mb-0" role="status">
+        {% if host_list|length == 0 %}
+          <div class="alert alert-warning py-2 px-3 small mb-4" role="status">
             Aucun host configuré. Ajoutez des hosts depuis l’administration pour pouvoir lancer une sauvegarde.
           </div>
         {% endif %}
-        {% if extra_json %}
-          <div class="mb-3">
-            <div class="app-meta-label">Paramètres (JSON)</div>
-            <pre class="app-pre mb-0">{{ extra_json }}</pre>
-          </div>
-        {% endif %}
         <hr class="my-4 opacity-25">
-        <form method="post" action="{% url 'equipment_backup' equipment.pk %}" class="js-backup-form">
+        <form
+          method="post"
+          action="{% url 'equipment_backup' equipment.pk %}"
+          class="js-backup-form"
+          id="backup-form"
+          novalidate
+        >
           {% csrf_token %}
-          {% if equipment.hosts.all %}
+          <div class="alert alert-danger py-2 px-3 small mb-3 d-none js-backup-form-errors" role="alert"></div>
+          {% if host_list|length == 1 %}
+            <input type="hidden" name="equipment_host_id" value="{{ host_list.0.pk }}" id="id_equipment_host_id">
             <div class="mb-3">
-              <label class="form-label app-meta-label" for="id_equipment_host_id">Host cible</label>
+              <div class="app-meta-label">Host cible</div>
+              <p class="mb-0 small js-backup-host-label">{{ host_list.0.select_display }}</p>
+            </div>
+          {% elif host_list|length > 1 %}
+            <div class="mb-3">
+              <label class="form-label app-meta-label" for="id_equipment_host_id">
+                Host cible <span class="text-danger" aria-hidden="true">*</span>
+              </label>
               <select
                 name="equipment_host_id"
                 id="id_equipment_host_id"
                 class="form-select"
                 required
-                aria-describedby="host-help"
+                aria-required="true"
+                aria-describedby="host-help host-error"
               >
-                {% if equipment.hosts.all|length > 1 %}
-                  <option value="" disabled selected>Choisir un host…</option>
-                {% endif %}
-                {% for h in equipment.hosts.all %}
-                  <option value="{{ h.pk }}" {% if equipment.hosts.all|length == 1 %}selected{% endif %}>
-                    {{ h.select_display }}
-                  </option>
+                <option value="" selected disabled hidden>Choisir un host…</option>
+                {% for h in host_list %}
+                  <option value="{{ h.pk }}">{{ h.select_display }}</option>
                 {% endfor %}
               </select>
+              <div id="host-error" class="invalid-feedback js-field-error">Veuillez sélectionner un host.</div>
               <p id="host-help" class="form-text small mb-0 text-muted">
                 La sauvegarde sera exécutée contre l’adresse sélectionnée.
               </p>
             </div>
           {% endif %}
-          <button type="submit" class="btn btn-primary app-btn-accent w-100" {% if not equipment.hosts.all %}disabled{% endif %}>
+          {% if requires_api_credentials %}
+            <div class="mb-3">
+              <div class="app-meta-label mb-2">Authentification API</div>
+              <label class="form-label app-meta-label" for="id_api_username">
+                Identifiant <span class="text-danger" aria-hidden="true">*</span>
+              </label>
+              <input
+                type="text"
+                name="api_username"
+                id="id_api_username"
+                class="form-control"
+                required
+                aria-required="true"
+                aria-describedby="username-error"
+                autocomplete="username"
+                autocapitalize="off"
+                spellcheck="false"
+              >
+              <div id="username-error" class="invalid-feedback js-field-error">L’identifiant est obligatoire.</div>
+            </div>
+            <div class="mb-4">
+              <label class="form-label app-meta-label" for="id_api_password">
+                Mot de passe <span class="text-danger" aria-hidden="true">*</span>
+              </label>
+              <input
+                type="password"
+                name="api_password"
+                id="id_api_password"
+                class="form-control"
+                required
+                aria-required="true"
+                aria-describedby="password-error"
+                autocomplete="current-password"
+              >
+              <div id="password-error" class="invalid-feedback js-field-error">Le mot de passe est obligatoire.</div>
+              <p class="form-text small mb-0 text-muted">
+                Utilisés pour l’appel API (non enregistrés en base).
+              </p>
+            </div>
+          {% endif %}
+          <button
+            type="button"
+            class="btn btn-primary app-btn-accent w-100 js-backup-open"
+            {% if host_list|length == 0 %}disabled{% endif %}
+          >
             Lancer une sauvegarde
           </button>
         </form>
-        <p class="form-text small mt-3 mb-0 text-muted">
-          En production, cette action déclenchera l’appel API via l’adaptateur configuré sur le type d’équipement.
-        </p>
       </div>
     </div>
   </div>
@@ -132,4 +169,40 @@
     </div>
   </div>
 </div>
+{% endwith %}
+{% endblock %}
+
+{% block extra_modals %}
+{% with host_list=equipment.hosts.all %}
+  {% if host_list|length > 0 %}
+    <div
+      class="modal fade"
+      id="backupConfirmModal"
+      tabindex="-1"
+      aria-labelledby="backupConfirmModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content app-modal border-0 shadow">
+          <div class="modal-header border-0 pb-0">
+            <h2 class="modal-title h5" id="backupConfirmModalLabel">Confirmer la sauvegarde</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+          </div>
+          <div class="modal-body pt-2">
+            <p class="mb-2">
+              Vous allez lancer une sauvegarde pour
+              <strong>{{ equipment.name }}</strong>
+              (<span class="text-muted">{{ equipment.equipment_type.name }}</span>).
+            </p>
+            <p class="mb-0 small text-muted js-backup-modal-summary" aria-live="polite"></p>
+          </div>
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+            <button type="button" class="btn btn-primary app-btn-accent js-backup-confirm">Confirmer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endwith %}
 {% endblock %}

@@ -1,0 +1,7 @@
+# Mode développement : docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+services:
+  web:
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      DJANGO_DEBUG: "true"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,web
