@@ -23,6 +23,6 @@ RUN chmod +x /app/docker/entrypoint.sh \
 
 USER appuser
 
-EXPOSE 8000
+EXPOSE 8010
 
 ENTRYPOINT ["/app/docker/entrypoint.sh"]

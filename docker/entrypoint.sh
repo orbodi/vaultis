@@ -35,11 +35,14 @@ if [ "${static_count}" -lt 5 ]; then
   exit 1
 fi
 
+PORT="${WEB_PORT:-8010}"
+echo "Démarrage de l'application sur le port ${PORT}…"
+
 if [ "${DJANGO_DEBUG}" = "true" ] || [ "${DJANGO_DEBUG}" = "1" ]; then
-  exec python manage.py runserver 0.0.0.0:8000
+  exec python manage.py runserver "0.0.0.0:${PORT}"
 fi
 
 exec gunicorn config.wsgi:application \
-  --bind 0.0.0.0:8000 \
+  --bind "0.0.0.0:${PORT}" \
   --workers "${GUNICORN_WORKERS:-2}" \
   --timeout 120

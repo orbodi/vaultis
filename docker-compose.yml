@@ -21,11 +21,12 @@ services:
   web:
     build: .
     ports:
-      - "${WEB_PORT:-8000}:8000"
+      - "${WEB_PORT:-8010}:${WEB_PORT:-8010}"
     env_file:
       - path: .env
         required: false
     environment:
+      WEB_PORT: ${WEB_PORT:-8010}
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings_prod}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-use-a-real-secret-key}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
