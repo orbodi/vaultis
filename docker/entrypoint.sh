@@ -26,7 +26,14 @@ except Exception:
 fi
 
 python manage.py migrate --noinput
-python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput --clear
+
+static_count=$(find /app/staticfiles -type f 2>/dev/null | wc -l)
+echo "Fichiers statiques collectés : ${static_count}"
+if [ "${static_count}" -lt 5 ]; then
+  echo "ERREUR: collectstatic incomplet (bootstrap/css/js manquants)." >&2
+  exit 1
+fi
 
 if [ "${DJANGO_DEBUG}" = "true" ] || [ "${DJANGO_DEBUG}" = "1" ]; then
   exec python manage.py runserver 0.0.0.0:8000

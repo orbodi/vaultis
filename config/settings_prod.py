@@ -40,6 +40,8 @@ SECURE_SSL_REDIRECT = _use_https
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+# HTTP sur IP (ex. http://172.16.x.x:8010) : évite l’avertissement COOP navigateur
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin" if _use_https else None
 
 _backup_root = os.environ.get("NITROKEY_BACKUP_ROOT", "").strip()
 if _backup_root:
