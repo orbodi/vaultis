@@ -6,7 +6,18 @@ from django.test import TestCase, override_settings
 from equipment.adapters.base import BackupAdapterError
 from equipment.adapters.nitrokey import Adapter as NitrokeyAdapter
 from equipment.models import BackupJob, Equipment, EquipmentHost, EquipmentType
+from equipment.nethsm_credentials import default_nethsm_credentials_configured
 from equipment.services import run_backup_job
+
+
+class DefaultNethsmCredentialsTests(TestCase):
+    @override_settings(NITROKEY_NETHSM_USER="backup1", NITROKEY_NETHSM_PASSWORD="secret")
+    def test_default_credentials_configured(self):
+        self.assertTrue(default_nethsm_credentials_configured())
+
+    @override_settings(NITROKEY_NETHSM_USER="", NITROKEY_NETHSM_PASSWORD="")
+    def test_default_credentials_missing(self):
+        self.assertFalse(default_nethsm_credentials_configured())
 
 
 class NitrokeyAdapterTests(TestCase):

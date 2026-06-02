@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch
@@ -5,6 +6,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .models import BackupJob, Equipment, EquipmentHost
+from .nethsm_credentials import default_nethsm_credentials_configured
 from .services import run_backup_job
 
 _HOSTS_PREFETCH = Prefetch(
@@ -35,13 +37,17 @@ def equipment_detail(request, pk: int):
         "triggered_by",
         "equipment_host",
     )[:20]
+    is_nitrokey = equipment.equipment_type.slug == "nitrokey"
+    has_default_credentials = default_nethsm_credentials_configured() if is_nitrokey else False
     return render(
         request,
         "equipment/detail.html",
         {
             "equipment": equipment,
             "jobs": jobs,
-            "requires_api_credentials": equipment.equipment_type.slug == "nitrokey",
+            "requires_api_credentials": is_nitrokey,
+            "has_default_nethsm_credentials": has_default_credentials,
+            "default_nethsm_username": getattr(settings, "NITROKEY_NETHSM_USER", "") if has_default_credentials else "",
         },
     )
 
@@ -65,12 +71,20 @@ def equipment_backup(request, pk: int):
 
     credentials = None
     if equipment.equipment_type.slug == "nitrokey":
-        username = request.POST.get("api_username", "").strip()
-        password = request.POST.get("api_password", "")
-        if not username or not password:
-            messages.error(request, "Identifiants API requis.")
+        credentials_mode = request.POST.get("credentials_mode", "default").strip().lower()
+        if credentials_mode == "custom":
+            username = request.POST.get("api_username", "").strip()
+            password = request.POST.get("api_password", "")
+            if not username or not password:
+                messages.error(request, "Identifiants API personnalisés requis.")
+                return redirect("equipment_detail", pk=equipment.pk)
+            credentials = {"username": username, "password": password}
+        elif not default_nethsm_credentials_configured():
+            messages.error(
+                request,
+                "Identifiants par défaut non configurés sur le serveur (.env).",
+            )
             return redirect("equipment_detail", pk=equipment.pk)
-        credentials = {"username": username, "password": password}
 
     job = BackupJob.objects.create(
         equipment=equipment,

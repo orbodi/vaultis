@@ -71,9 +71,9 @@ def _nethsm_credentials(job: BackupJob) -> tuple[str, str]:
         return from_form
 
     extra = _equipment_extra(job)
-    user = (extra.get("nethsm_user") or os.environ.get("NITROKEY_NETHSM_USER") or "").strip()
+    user = (extra.get("nethsm_user") or getattr(settings, "NITROKEY_NETHSM_USER", "") or "").strip()
     password = (
-        extra.get("nethsm_password") or os.environ.get("NITROKEY_NETHSM_PASSWORD") or ""
+        extra.get("nethsm_password") or getattr(settings, "NITROKEY_NETHSM_PASSWORD", "") or ""
     ).strip()
     if not user or not password:
         raise BackupAdapterError("Identifiants API requis.")
@@ -306,7 +306,14 @@ class Adapter:
                 ) from exc
         elif selected_mode == "scp":
             if scp_config is None:
-                raise BackupAdapterError("Configuration SCP incomplète.")
+                missing = []
+                if not getattr(settings, "NITROKEY_WINDOWS_SCP_HOST", ""):
+                    missing.append("NITROKEY_WINDOWS_SCP_HOST")
+                if not getattr(settings, "NITROKEY_WINDOWS_SCP_USERNAME", ""):
+                    missing.append("NITROKEY_WINDOWS_SCP_USERNAME ou NITROKEY_WINDOWS_SCP_USERNAME_FILE")
+                raise BackupAdapterError(
+                    "Configuration SCP incomplète : " + ", ".join(missing) + "."
+                )
             try:
                 _transfer_to_windows_scp(scp_config, filename, payload)
                 transferred = True
@@ -318,6 +325,15 @@ class Adapter:
                     filename,
                 )
             except Exception as exc:
+                logger.warning(
+                    "SCP transfer failed host=%s port=%s user=%s remote_dir=%s password_len=%s error=%s",
+                    scp_config["host"],
+                    scp_config["port"],
+                    scp_config["username"],
+                    scp_config["remote_dir"],
+                    len(scp_config["password"]),
+                    exc,
+                )
                 raise BackupAdapterError(
                     "Backup local ok, transfert SCP Windows impossible. Voir les logs."
                 ) from exc

@@ -28,6 +28,53 @@ document.addEventListener("DOMContentLoaded", function () {
     var formErrors = form.querySelector(".js-backup-form-errors");
     var summaryEl = modalEl.querySelector(".js-backup-modal-summary");
     var confirmBtn = modalEl.querySelector(".js-backup-confirm");
+    var credentialsModeInput = form.querySelector(".js-credentials-mode");
+    var customCredentialsEl = form.querySelector(".js-custom-credentials");
+    var toggleCustomBtns = form.querySelectorAll(".js-toggle-custom-credentials, .js-toggle-custom-credentials-back");
+    var forceCustomCredentials =
+      customCredentialsEl && customCredentialsEl.getAttribute("data-force-visible") === "true";
+
+    function isCustomCredentials() {
+      if (forceCustomCredentials) {
+        return true;
+      }
+      return credentialsModeInput && credentialsModeInput.value === "custom";
+    }
+
+    function setCustomCredentialsVisible(visible) {
+      if (!customCredentialsEl || !credentialsModeInput) {
+        return;
+      }
+      if (visible) {
+        customCredentialsEl.classList.remove("d-none");
+        credentialsModeInput.value = "custom";
+      } else {
+        customCredentialsEl.classList.add("d-none");
+        credentialsModeInput.value = "default";
+        if (usernameInput) {
+          usernameInput.value = "";
+        }
+        if (passwordInput) {
+          passwordInput.value = "";
+        }
+      }
+      clearFieldErrors();
+    }
+
+    if (forceCustomCredentials && credentialsModeInput) {
+      credentialsModeInput.value = "custom";
+    }
+
+    toggleCustomBtns.forEach(function (btn) {
+      btn.addEventListener("click", function (event) {
+        event.preventDefault();
+        if (btn.classList.contains("js-toggle-custom-credentials-back")) {
+          setCustomCredentialsVisible(false);
+          return;
+        }
+        setCustomCredentialsVisible(!isCustomCredentials());
+      });
+    });
 
     var rules = [];
     if (hostSelect) {
@@ -46,6 +93,9 @@ document.addEventListener("DOMContentLoaded", function () {
         errorEl: document.getElementById("username-error"),
         label: "identifiant",
         isValid: function () {
+          if (!isCustomCredentials()) {
+            return true;
+          }
           return Boolean(usernameInput.value.trim());
         },
       });
@@ -56,6 +106,9 @@ document.addEventListener("DOMContentLoaded", function () {
         errorEl: document.getElementById("password-error"),
         label: "mot de passe",
         isValid: function () {
+          if (!isCustomCredentials()) {
+            return true;
+          }
           return Boolean(passwordInput.value);
         },
       });
@@ -115,8 +168,10 @@ document.addEventListener("DOMContentLoaded", function () {
       if (host) {
         lines.push("Host cible : " + host);
       }
-      if (usernameInput && usernameInput.value.trim()) {
+      if (isCustomCredentials() && usernameInput && usernameInput.value.trim()) {
         lines.push("Identifiant API : " + usernameInput.value.trim());
+      } else if (!forceCustomCredentials && credentialsModeInput) {
+        lines.push("Identifiants : par défaut (serveur)");
       }
       summaryEl.textContent = lines.join(" — ");
     }

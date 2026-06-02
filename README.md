@@ -85,7 +85,7 @@ curl -k -X POST 'https://{host}/api/v1/system/backup' \
 ### Configuration admin
 
 1. Équipement type **Nitrokey**, host = IP ou URL du NetHSM.
-2. Sur la fiche : sélection du host, **identifiant** et **mot de passe** (rôle Backup NetHSM).
+2. Sur la fiche : sélection du host, puis **identifiants par défaut** (`.env`) ou **autres credentials** via le bouton dédié.
 3. Optionnel dans **extra** : `{"integration": "nethsm"}` ou variable `NITROKEY_INTEGRATION=nethsm`.
 
 Dès que identifiant et mot de passe sont fournis dans le formulaire, l’appel API réel est utilisé.
@@ -136,11 +136,16 @@ Si vous utilisez déjà une commande du type `scp fichier.bkp username@host:E:\N
 NITROKEY_WINDOWS_SCP_HOST=172.16.12.187
 NITROKEY_WINDOWS_SCP_PORT=22
 NITROKEY_WINDOWS_SCP_USERNAME=username
-NITROKEY_WINDOWS_SCP_PASSWORD=mot-de-passe
+NITROKEY_WINDOWS_SCP_PASSWORD="mot-de-passe"
 NITROKEY_WINDOWS_SCP_REMOTE_DIR=E:/NetConfig_Backup
 ```
 
 Le serveur Windows doit avoir OpenSSH/SFTP activé.
+
+**Mot de passe avec `#`** : Docker Compose tronque souvent au `#` même avec guillemets. Solutions fiables :
+
+1. Fichier secret (recommandé) : `printf '%s' 'Mon#MotDePasse' > secrets/scp_password` puis `NITROKEY_WINDOWS_SCP_PASSWORD_FILE=/app/secrets/scp_password` (et commenter `NITROKEY_WINDOWS_SCP_PASSWORD`).
+2. Base64 : `NITROKEY_WINDOWS_SCP_PASSWORD_B64=$(echo -n 'Mon#MotDePasse' | base64)`.
 
 ### Sélection de la méthode
 
@@ -199,7 +204,7 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 | `DATABASE_URL` | PostgreSQL (Docker : `postgres://user:pass@db:5432/vaultis`) |
 | `POSTGRES_*` | Alternative à `DATABASE_URL` (`HOST`, `PORT`, `DB`, `USER`, `PASSWORD`) |
 | `NITROKEY_INTEGRATION` | `nethsm` pour forcer l’API sur tout le parc Nitrokey |
-| `NITROKEY_NETHSM_USER` / `NITROKEY_NETHSM_PASSWORD` | Identifiants optionnels (sinon formulaire web) |
+| `NITROKEY_NETHSM_USER` / `NITROKEY_NETHSM_PASSWORD` | Identifiants API par défaut (formulaire web, mode par défaut) |
 | `NITROKEY_NETHSM_VERIFY_TLS` | `false` si certificat auto-signé (`curl -k`) |
 | `NITROKEY_BACKUP_ROOT` | Répertoire des fichiers `.bkp` (dans le conteneur, ex. `/app/data/backups/nitrokey`) |
 | `NITROKEY_TRANSFER_MODE` | `auto`, `smb`, `scp`, `dir`, `none` |

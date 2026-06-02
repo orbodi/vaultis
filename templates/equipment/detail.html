@@ -67,43 +67,74 @@
             </div>
           {% endif %}
           {% if requires_api_credentials %}
-            <div class="mb-3">
+            <div class="mb-4 js-credentials-block">
               <div class="app-meta-label mb-2">Authentification API</div>
-              <label class="form-label app-meta-label" for="id_api_username">
-                Identifiant <span class="text-danger" aria-hidden="true">*</span>
-              </label>
-              <input
-                type="text"
-                name="api_username"
-                id="id_api_username"
-                class="form-control"
-                required
-                aria-required="true"
-                aria-describedby="username-error"
-                autocomplete="username"
-                autocapitalize="off"
-                spellcheck="false"
-              >
-              <div id="username-error" class="invalid-feedback js-field-error">L’identifiant est obligatoire.</div>
-            </div>
-            <div class="mb-4">
-              <label class="form-label app-meta-label" for="id_api_password">
-                Mot de passe <span class="text-danger" aria-hidden="true">*</span>
-              </label>
-              <input
-                type="password"
-                name="api_password"
-                id="id_api_password"
-                class="form-control"
-                required
-                aria-required="true"
-                aria-describedby="password-error"
-                autocomplete="current-password"
-              >
-              <div id="password-error" class="invalid-feedback js-field-error">Le mot de passe est obligatoire.</div>
-              <p class="form-text small mb-0 text-muted">
-                Utilisés pour l’appel API (non enregistrés en base).
+              <input type="hidden" name="credentials_mode" value="default" class="js-credentials-mode">
+              <p class="small text-muted mb-2 js-credentials-default-summary">
+                {% if has_default_nethsm_credentials %}
+                  Identifiants par défaut du serveur
+                  {% if default_nethsm_username %}
+                    (<span class="text-break">{{ default_nethsm_username }}</span>)
+                  {% endif %}
+                  .
+                {% else %}
+                  Aucun identifiant par défaut configuré dans le <code>.env</code> du serveur.
+                {% endif %}
               </p>
+              {% if has_default_nethsm_credentials %}
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary btn-sm js-toggle-custom-credentials"
+                >
+                  Utiliser autres credentials
+                </button>
+              {% endif %}
+              <div
+                class="js-custom-credentials mt-3{% if has_default_nethsm_credentials %} d-none{% endif %}"
+                {% if not has_default_nethsm_credentials %}data-force-visible="true"{% endif %}
+              >
+                {% if has_default_nethsm_credentials %}
+                  <button
+                    type="button"
+                    class="btn btn-link btn-sm px-0 mb-2 js-toggle-custom-credentials-back"
+                  >
+                    Revenir aux identifiants par défaut
+                  </button>
+                {% endif %}
+                <div class="mb-3">
+                  <label class="form-label app-meta-label" for="id_api_username">
+                    Identifiant <span class="text-danger" aria-hidden="true">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="api_username"
+                    id="id_api_username"
+                    class="form-control"
+                    aria-describedby="username-error"
+                    autocomplete="username"
+                    autocapitalize="off"
+                    spellcheck="false"
+                  >
+                  <div id="username-error" class="invalid-feedback js-field-error">L’identifiant est obligatoire.</div>
+                </div>
+                <div class="mb-0">
+                  <label class="form-label app-meta-label" for="id_api_password">
+                    Mot de passe <span class="text-danger" aria-hidden="true">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    name="api_password"
+                    id="id_api_password"
+                    class="form-control"
+                    aria-describedby="password-error"
+                    autocomplete="current-password"
+                  >
+                  <div id="password-error" class="invalid-feedback js-field-error">Le mot de passe est obligatoire.</div>
+                  <p class="form-text small mb-0 text-muted">
+                    Utilisés pour cet appel uniquement (non enregistrés en base).
+                  </p>
+                </div>
+              </div>
             </div>
           {% endif %}
           <button

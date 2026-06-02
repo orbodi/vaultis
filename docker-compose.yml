@@ -40,6 +40,7 @@ services:
       NITROKEY_BACKUP_ROOT: ${NITROKEY_BACKUP_ROOT:-/app/data/backups/nitrokey}
     volumes:
       - ${VAULTIS_HOST_DATA_DIR:-./data}:/app/data
+      - ${VAULTIS_SECRETS_DIR:-./secrets}:/app/secrets:ro
     depends_on:
       db:
         condition: service_healthy

@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import base64
 import os
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -205,9 +206,35 @@ NITROKEY_WINDOWS_SMB_DOMAIN = os.environ.get("NITROKEY_WINDOWS_SMB_DOMAIN", "").
 NITROKEY_WINDOWS_SMB_PORT = int(os.environ.get("NITROKEY_WINDOWS_SMB_PORT", "445"))
 NITROKEY_WINDOWS_SCP_HOST = os.environ.get("NITROKEY_WINDOWS_SCP_HOST", "").strip()
 NITROKEY_WINDOWS_SCP_PORT = int(os.environ.get("NITROKEY_WINDOWS_SCP_PORT", "22"))
-NITROKEY_WINDOWS_SCP_USERNAME = os.environ.get("NITROKEY_WINDOWS_SCP_USERNAME", "").strip()
-NITROKEY_WINDOWS_SCP_PASSWORD = os.environ.get("NITROKEY_WINDOWS_SCP_PASSWORD", "")
+_scp_username_file = os.environ.get("NITROKEY_WINDOWS_SCP_USERNAME_FILE", "").strip()
+if _scp_username_file:
+    NITROKEY_WINDOWS_SCP_USERNAME = Path(_scp_username_file).read_text(encoding="utf-8").strip("\r\n")
+else:
+    NITROKEY_WINDOWS_SCP_USERNAME = os.environ.get("NITROKEY_WINDOWS_SCP_USERNAME", "").strip()
+_scp_password_file = os.environ.get("NITROKEY_WINDOWS_SCP_PASSWORD_FILE", "").strip()
+_scp_password = os.environ.get("NITROKEY_WINDOWS_SCP_PASSWORD", "")
+_scp_password_b64 = os.environ.get("NITROKEY_WINDOWS_SCP_PASSWORD_B64", "").strip()
+if _scp_password_file:
+    NITROKEY_WINDOWS_SCP_PASSWORD = Path(_scp_password_file).read_text(encoding="utf-8").strip("\r\n")
+elif _scp_password_b64:
+    NITROKEY_WINDOWS_SCP_PASSWORD = base64.b64decode(_scp_password_b64).decode("utf-8")
+else:
+    NITROKEY_WINDOWS_SCP_PASSWORD = _scp_password
 NITROKEY_WINDOWS_SCP_REMOTE_DIR = os.environ.get("NITROKEY_WINDOWS_SCP_REMOTE_DIR", "").strip()
+_nethsm_user_file = os.environ.get("NITROKEY_NETHSM_USER_FILE", "").strip()
+if _nethsm_user_file:
+    NITROKEY_NETHSM_USER = Path(_nethsm_user_file).read_text(encoding="utf-8").strip("\r\n")
+else:
+    NITROKEY_NETHSM_USER = os.environ.get("NITROKEY_NETHSM_USER", "").strip()
+_nethsm_password_file = os.environ.get("NITROKEY_NETHSM_PASSWORD_FILE", "").strip()
+_nethsm_password = os.environ.get("NITROKEY_NETHSM_PASSWORD", "")
+_nethsm_password_b64 = os.environ.get("NITROKEY_NETHSM_PASSWORD_B64", "").strip()
+if _nethsm_password_file:
+    NITROKEY_NETHSM_PASSWORD = Path(_nethsm_password_file).read_text(encoding="utf-8").strip("\r\n")
+elif _nethsm_password_b64:
+    NITROKEY_NETHSM_PASSWORD = base64.b64decode(_nethsm_password_b64).decode("utf-8")
+else:
+    NITROKEY_NETHSM_PASSWORD = _nethsm_password
 NITROKEY_NETHSM_VERIFY_TLS = os.environ.get(
     "NITROKEY_NETHSM_VERIFY_TLS",
     "true",
