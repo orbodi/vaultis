@@ -138,3 +138,28 @@ class RunBackupJobTests(TestCase):
         self.assertEqual(job.status, BackupJob.Status.SUCCESS)
         self.assertIn("simulée", job.message.lower())
         self.assertIsNotNone(job.finished_at)
+
+    @patch("equipment.services.get_adapter")
+    def test_service_logs_technical_error_with_context(self, mock_get_adapter):
+        class BrokenAdapter:
+            def run_backup(self, _job):
+                raise RuntimeError("boom")
+
+        mock_get_adapter.return_value = BrokenAdapter()
+        job = BackupJob.objects.create(
+            equipment=self.equipment,
+            equipment_host=self.host,
+            triggered_by=self.user,
+        )
+
+        with self.assertLogs("equipment.services", level="ERROR") as logs:
+            run_backup_job(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, BackupJob.Status.FAILED)
+        self.assertEqual(job.message, "Erreur technique.")
+        joined = "\n".join(logs.output)
+        self.assertIn("Backup technical failure", joined)
+        self.assertIn(f"job_id={job.pk}", joined)
+        self.assertIn("host=wkst-1.example.local", joined)
+        self.assertIn("user=ops", joined)
