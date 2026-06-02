@@ -35,10 +35,23 @@ docker compose exec web python manage.py createsuperuser
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-Volumes persistants :
+Données persistantes (bind mount sur l’hôte, voir `.env`) :
 
-- `postgres_data` — base PostgreSQL
-- `vaultis_data` — fichiers `.bkp` NetHSM (`/app/data/backups/nitrokey`)
+| Variable | Montage conteneur | Contenu |
+|----------|-------------------|---------|
+| `VAULTIS_HOST_DATA_DIR` | `/app/data` | Sauvegardes NetHSM (`.bkp` sous `backups/nitrokey/`) |
+| `POSTGRES_HOST_DATA_DIR` | `/var/lib/postgresql/data` | Base PostgreSQL |
+
+Exemple sur le serveur :
+
+```env
+VAULTIS_HOST_DATA_DIR=/home/abourobodi/atos/vaultis
+POSTGRES_HOST_DATA_DIR=/home/abourobodi/atos/postgres
+NITROKEY_BACKUP_ROOT=/app/data/backups/nitrokey
+```
+
+Fichiers `.bkp` visibles sur l’hôte : `/home/abourobodi/atos/vaultis/backups/nitrokey/`.  
+Au premier démarrage, créer les dossiers (`mkdir -p …`) et, pour PostgreSQL, s’assurer que le répertoire est vide ou déjà initialisé.
 
 ## Installation locale (sans Docker)
 
@@ -134,8 +147,10 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 | `NITROKEY_INTEGRATION` | `nethsm` pour forcer l’API sur tout le parc Nitrokey |
 | `NITROKEY_NETHSM_USER` / `NITROKEY_NETHSM_PASSWORD` | Identifiants optionnels (sinon formulaire web) |
 | `NITROKEY_NETHSM_VERIFY_TLS` | `false` si certificat auto-signé (`curl -k`) |
-| `NITROKEY_BACKUP_ROOT` | Répertoire des fichiers `.bkp` |
-| `WEB_PORT` | Port exposé Docker (défaut `8000`, ex. `8010`) |
+| `NITROKEY_BACKUP_ROOT` | Répertoire des fichiers `.bkp` (dans le conteneur, ex. `/app/data/backups/nitrokey`) |
+| `VAULTIS_HOST_DATA_DIR` | Dossier hôte monté sur `/app/data` |
+| `POSTGRES_HOST_DATA_DIR` | Dossier hôte pour les données PostgreSQL |
+| `WEB_PORT` | Port exposé Docker (défaut `8010`) |
 
 **Accès par IP** (ex. `http://172.16.41.225:8010`) : ajouter l’IP dans `DJANGO_ALLOWED_HOSTS` et l’URL complète (avec port) dans `DJANGO_CSRF_TRUSTED_ORIGINS`. Garder `DJANGO_USE_HTTPS=false` sauf reverse proxy HTTPS.
 

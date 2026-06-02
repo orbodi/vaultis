@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-vaultis}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vaultis}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ${POSTGRES_HOST_DATA_DIR:-./data/postgres}:/var/lib/postgresql/data
     healthcheck:
       test:
         [
@@ -37,14 +37,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-vaultis}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vaultis}
       DATABASE_URL: postgres://${POSTGRES_USER:-vaultis}:${POSTGRES_PASSWORD:-vaultis}@db:5432/${POSTGRES_DB:-vaultis}
-      NITROKEY_BACKUP_ROOT: /app/data/backups/nitrokey
+      NITROKEY_BACKUP_ROOT: ${NITROKEY_BACKUP_ROOT:-/app/data/backups/nitrokey}
     volumes:
-      - vaultis_data:/app/data
+      - ${VAULTIS_HOST_DATA_DIR:-./data}:/app/data
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
-volumes:
-  postgres_data:
-  vaultis_data:
