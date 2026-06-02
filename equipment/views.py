@@ -36,7 +36,7 @@ def equipment_detail(request, pk: int):
     jobs = equipment.backup_jobs.select_related(
         "triggered_by",
         "equipment_host",
-    )[:20]
+    )[:5]
     is_nitrokey = equipment.equipment_type.slug == "nitrokey"
     has_default_credentials = default_nethsm_credentials_configured() if is_nitrokey else False
     return render(

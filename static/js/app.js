@@ -35,6 +35,38 @@ document.addEventListener("DOMContentLoaded", function () {
     var forceCustomCredentials =
       customCredentialsEl && customCredentialsEl.getAttribute("data-force-visible") === "true";
 
+    var rules = [];
+    if (hostSelect) {
+      rules.push({
+        field: hostSelect,
+        errorEl: document.getElementById("host-error"),
+        label: "host cible",
+        isValid: function () {
+          return Boolean(hostSelect.value);
+        },
+      });
+    }
+    if (usernameInput) {
+      rules.push({
+        field: usernameInput,
+        errorEl: document.getElementById("username-error"),
+        label: "identifiant",
+        isValid: function () {
+          return Boolean(usernameInput.value.trim());
+        },
+      });
+    }
+    if (passwordInput) {
+      rules.push({
+        field: passwordInput,
+        errorEl: document.getElementById("password-error"),
+        label: "mot de passe",
+        isValid: function () {
+          return Boolean(passwordInput.value);
+        },
+      });
+    }
+
     function isCustomCredentials() {
       if (forceCustomCredentials) {
         return true;
@@ -50,6 +82,45 @@ document.addEventListener("DOMContentLoaded", function () {
         return isCustomCredentials();
       }
       return true;
+    }
+
+    function clearFieldErrors() {
+      rules.forEach(function (rule) {
+        rule.field.classList.remove("is-invalid");
+        if (rule.errorEl) {
+          rule.errorEl.classList.remove("d-block");
+        }
+      });
+      if (formErrors) {
+        formErrors.classList.add("d-none");
+        formErrors.textContent = "";
+      }
+    }
+
+    function showFieldErrors() {
+      clearFieldErrors();
+      var missing = [];
+
+      rules.forEach(function (rule) {
+        if (!ruleApplies(rule)) {
+          return;
+        }
+        if (!rule.isValid()) {
+          rule.field.classList.add("is-invalid");
+          if (rule.errorEl) {
+            rule.errorEl.classList.add("d-block");
+          }
+          missing.push(rule.label);
+        }
+      });
+
+      if (missing.length && formErrors) {
+        formErrors.textContent =
+          "Veuillez remplir les champs obligatoires : " + missing.join(", ") + ".";
+        formErrors.classList.remove("d-none");
+      }
+
+      return missing.length === 0;
     }
 
     function syncCredentialFieldsState() {
@@ -108,77 +179,6 @@ document.addEventListener("DOMContentLoaded", function () {
         setCustomCredentialsVisible(false);
       });
     });
-
-    var rules = [];
-    if (hostSelect) {
-      rules.push({
-        field: hostSelect,
-        errorEl: document.getElementById("host-error"),
-        label: "host cible",
-        isValid: function () {
-          return Boolean(hostSelect.value);
-        },
-      });
-    }
-    if (usernameInput) {
-      rules.push({
-        field: usernameInput,
-        errorEl: document.getElementById("username-error"),
-        label: "identifiant",
-        isValid: function () {
-          return Boolean(usernameInput.value.trim());
-        },
-      });
-    }
-    if (passwordInput) {
-      rules.push({
-        field: passwordInput,
-        errorEl: document.getElementById("password-error"),
-        label: "mot de passe",
-        isValid: function () {
-          return Boolean(passwordInput.value);
-        },
-      });
-    }
-
-    function clearFieldErrors() {
-      rules.forEach(function (rule) {
-        rule.field.classList.remove("is-invalid");
-        if (rule.errorEl) {
-          rule.errorEl.classList.remove("d-block");
-        }
-      });
-      if (formErrors) {
-        formErrors.classList.add("d-none");
-        formErrors.textContent = "";
-      }
-    }
-
-    function showFieldErrors() {
-      clearFieldErrors();
-      var missing = [];
-
-      rules.forEach(function (rule) {
-        if (!ruleApplies(rule)) {
-          return;
-        }
-        if (!rule.isValid()) {
-          rule.field.classList.add("is-invalid");
-          if (rule.errorEl) {
-            rule.errorEl.classList.add("d-block");
-          }
-          missing.push(rule.label);
-        }
-      });
-
-      if (missing.length && formErrors) {
-        formErrors.textContent =
-          "Veuillez remplir les champs obligatoires : " + missing.join(", ") + ".";
-        formErrors.classList.remove("d-none");
-      }
-
-      return missing.length === 0;
-    }
 
     function hostLabel() {
       if (hostSelect && hostSelect.value) {
