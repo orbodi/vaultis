@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load tz %}
 
 {% block title %}{{ equipment.name }} — Device backup{% endblock %}
 
@@ -167,7 +168,7 @@
               <tbody>
                 {% for job in jobs %}
                   <tr>
-                    <td class="text-nowrap small ps-4">{{ job.started_at|date:"d/m/Y H:i" }}</td>
+                    <td class="text-nowrap small ps-4">{{ job.started_at|localtime|date:"d/m/Y H:i" }}</td>
                     <td>
                       {% if job.status == 'success' %}
                         <span class="badge rounded-pill text-bg-success">Réussi</span>

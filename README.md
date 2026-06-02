@@ -98,7 +98,7 @@ Enregistrés sous `NITROKEY_BACKUP_ROOT` (défaut `backups/nitrokey/`), nom horo
 2026-01-06_14-30-00_nethsm_172_16_42_112.bkp
 ```
 
-Fuseau : `Europe/Paris` (paramètre Django `TIME_ZONE`).
+Fuseau : `UTC` (GMT+0, paramètre Django `TIME_ZONE` / `DJANGO_TIME_ZONE`).
 
 ### Transfert vers dossier Windows distant
 

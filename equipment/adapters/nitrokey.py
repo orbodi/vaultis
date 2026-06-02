@@ -22,6 +22,7 @@ import ssl
 import socket
 from pathlib import Path
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -65,19 +66,25 @@ def _credentials_from_job(job: BackupJob) -> tuple[str, str] | None:
     return None
 
 
-def _nethsm_credentials(job: BackupJob) -> tuple[str, str]:
+def _nethsm_credentials(job: BackupJob) -> tuple[str, str, str]:
+    """Retourne (user, password, source) avec source = form | extra | env."""
     from_form = _credentials_from_job(job)
     if from_form:
-        return from_form
+        return from_form[0], from_form[1], "form"
 
     extra = _equipment_extra(job)
-    user = (extra.get("nethsm_user") or getattr(settings, "NITROKEY_NETHSM_USER", "") or "").strip()
-    password = (
-        extra.get("nethsm_password") or getattr(settings, "NITROKEY_NETHSM_PASSWORD", "") or ""
-    ).strip()
+    if extra.get("nethsm_user") and extra.get("nethsm_password"):
+        return (
+            str(extra["nethsm_user"]).strip(),
+            str(extra["nethsm_password"]),
+            "extra",
+        )
+
+    user = (getattr(settings, "NITROKEY_NETHSM_USER", "") or "").strip()
+    password = getattr(settings, "NITROKEY_NETHSM_PASSWORD", "") or ""
     if not user or not password:
         raise BackupAdapterError("Identifiants API requis.")
-    return user, password
+    return user, password, "env"
 
 
 def _verify_tls(job: BackupJob) -> bool:
@@ -108,8 +115,9 @@ def _backup_root() -> Path:
 
 
 def _backup_filename(host_address: str) -> str:
-    """Nom horodaté (fuseau Django) pour tri chronologique."""
-    stamp = dj_timezone.localtime().strftime("%Y-%m-%d_%H-%M-%S")
+    """Nom horodaté (fuseau Django TIME_ZONE) pour tri chronologique."""
+    tz = ZoneInfo(settings.TIME_ZONE)
+    stamp = dj_timezone.localtime(dj_timezone.now(), timezone=tz).strftime("%Y-%m-%d_%H-%M-%S")
     safe_host = (
         host_address.replace("://", "_")
         .replace(":", "_")
@@ -233,6 +241,11 @@ def _fetch_nethsm_backup(host_address: str, user: str, password: str, *, verify_
         except OSError:
             pass
         detail = f" — {body[:120]}" if body else ""
+        if exc.code == 401:
+            raise BackupAdapterError(
+                "Identifiants API NetHSM refusés (HTTP 401). "
+                "Vérifier NITROKEY_NETHSM_USER / NITROKEY_NETHSM_PASSWORD (.env ou fichiers secrets)."
+            ) from exc
         raise BackupAdapterError(f"NetHSM HTTP {exc.code}{detail}") from exc
     except URLError as exc:
         raise BackupAdapterError("NetHSM injoignable.") from exc
@@ -255,7 +268,14 @@ class Adapter:
         return backup_success_message(target)
 
     def _run_nethsm(self, job: BackupJob, host_address: str) -> str:
-        user, password = _nethsm_credentials(job)
+        user, password, cred_source = _nethsm_credentials(job)
+        logger.info(
+            "NetHSM backup start host=%s api_user=%s cred_source=%s password_len=%s",
+            host_address,
+            user,
+            cred_source,
+            len(password),
+        )
         payload = _fetch_nethsm_backup(
             host_address,
             user,

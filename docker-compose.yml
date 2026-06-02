@@ -26,6 +26,7 @@ services:
       - path: .env
         required: false
     environment:
+      TZ: ${DJANGO_TIME_ZONE:-UTC}
       WEB_PORT: ${WEB_PORT:-8010}
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings_prod}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-use-a-real-secret-key}

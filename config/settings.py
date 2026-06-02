@@ -145,13 +145,16 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
+# Fuseau pour l’affichage (templates |localtime) et les horodatages métier.
+# La base reste en UTC tant que USE_TZ=True.
 
-LANGUAGE_CODE = 'fr-fr'
+LANGUAGE_CODE = "fr-fr"
 
-TIME_ZONE = 'Europe/Paris'
+_django_tz = os.environ.get("DJANGO_TIME_ZONE", "UTC").strip()
+TIME_ZONE = _django_tz or "UTC"
 
 USE_I18N = True
-
+USE_L10N = True
 USE_TZ = True
 
 
