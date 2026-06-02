@@ -1,3 +1,4 @@
+/** vaultis app.js v20260204 */
 /**
  * Sauvegarde : validation avec messages visibles, puis modal de confirmation.
  */
@@ -85,6 +86,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function clearFieldErrors() {
+      if (!rules || !rules.length) {
+        if (formErrors) {
+          formErrors.classList.add("d-none");
+          formErrors.textContent = "";
+        }
+        return;
+      }
       rules.forEach(function (rule) {
         rule.field.classList.remove("is-invalid");
         if (rule.errorEl) {
