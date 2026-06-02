@@ -28,9 +28,10 @@ document.addEventListener("DOMContentLoaded", function () {
     var formErrors = form.querySelector(".js-backup-form-errors");
     var summaryEl = modalEl.querySelector(".js-backup-modal-summary");
     var confirmBtn = modalEl.querySelector(".js-backup-confirm");
-    var credentialsModeInput = form.querySelector(".js-credentials-mode");
+    var credentialsModeInput = form.querySelector('input[name="credentials_mode"]');
     var customCredentialsEl = form.querySelector(".js-custom-credentials");
-    var toggleCustomBtns = form.querySelectorAll(".js-toggle-custom-credentials, .js-toggle-custom-credentials-back");
+    var defaultSummaryEl = form.querySelector(".js-credentials-default-summary");
+    var showCustomBtn = form.querySelector(".js-toggle-custom-credentials");
     var forceCustomCredentials =
       customCredentialsEl && customCredentialsEl.getAttribute("data-force-visible") === "true";
 
@@ -38,7 +39,33 @@ document.addEventListener("DOMContentLoaded", function () {
       if (forceCustomCredentials) {
         return true;
       }
-      return credentialsModeInput && credentialsModeInput.value === "custom";
+      if (!credentialsModeInput) {
+        return false;
+      }
+      return credentialsModeInput.value === "custom";
+    }
+
+    function ruleApplies(rule) {
+      if (rule.field === usernameInput || rule.field === passwordInput) {
+        return isCustomCredentials();
+      }
+      return true;
+    }
+
+    function syncCredentialFieldsState() {
+      var custom = isCustomCredentials();
+      if (usernameInput) {
+        usernameInput.disabled = !custom;
+      }
+      if (passwordInput) {
+        passwordInput.disabled = !custom;
+      }
+      if (defaultSummaryEl) {
+        defaultSummaryEl.classList.toggle("d-none", custom);
+      }
+      if (showCustomBtn) {
+        showCustomBtn.classList.toggle("d-none", custom);
+      }
     }
 
     function setCustomCredentialsVisible(visible) {
@@ -58,21 +85,27 @@ document.addEventListener("DOMContentLoaded", function () {
           passwordInput.value = "";
         }
       }
+      syncCredentialFieldsState();
       clearFieldErrors();
     }
 
-    if (forceCustomCredentials && credentialsModeInput) {
-      credentialsModeInput.value = "custom";
+    if (forceCustomCredentials) {
+      setCustomCredentialsVisible(true);
+    } else {
+      setCustomCredentialsVisible(false);
     }
 
-    toggleCustomBtns.forEach(function (btn) {
+    form.querySelectorAll(".js-toggle-custom-credentials").forEach(function (btn) {
       btn.addEventListener("click", function (event) {
         event.preventDefault();
-        if (btn.classList.contains("js-toggle-custom-credentials-back")) {
-          setCustomCredentialsVisible(false);
-          return;
-        }
-        setCustomCredentialsVisible(!isCustomCredentials());
+        setCustomCredentialsVisible(true);
+      });
+    });
+
+    form.querySelectorAll(".js-toggle-custom-credentials-back").forEach(function (btn) {
+      btn.addEventListener("click", function (event) {
+        event.preventDefault();
+        setCustomCredentialsVisible(false);
       });
     });
 
@@ -93,9 +126,6 @@ document.addEventListener("DOMContentLoaded", function () {
         errorEl: document.getElementById("username-error"),
         label: "identifiant",
         isValid: function () {
-          if (!isCustomCredentials()) {
-            return true;
-          }
           return Boolean(usernameInput.value.trim());
         },
       });
@@ -106,9 +136,6 @@ document.addEventListener("DOMContentLoaded", function () {
         errorEl: document.getElementById("password-error"),
         label: "mot de passe",
         isValid: function () {
-          if (!isCustomCredentials()) {
-            return true;
-          }
           return Boolean(passwordInput.value);
         },
       });
@@ -132,6 +159,9 @@ document.addEventListener("DOMContentLoaded", function () {
       var missing = [];
 
       rules.forEach(function (rule) {
+        if (!ruleApplies(rule)) {
+          return;
+        }
         if (!rule.isValid()) {
           rule.field.classList.add("is-invalid");
           if (rule.errorEl) {
@@ -170,14 +200,14 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       if (isCustomCredentials() && usernameInput && usernameInput.value.trim()) {
         lines.push("Identifiant API : " + usernameInput.value.trim());
-      } else if (!forceCustomCredentials && credentialsModeInput) {
+      } else if (!forceCustomCredentials) {
         lines.push("Identifiants : par défaut (serveur)");
       }
       summaryEl.textContent = lines.join(" — ");
     }
 
     function focusFirstInvalid() {
-      var first = form.querySelector(".is-invalid");
+      var first = form.querySelector(".is-invalid:not([disabled])");
       if (first && typeof first.focus === "function") {
         first.focus();
       }
@@ -205,6 +235,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     openBtn.addEventListener("click", function (event) {
       event.preventDefault();
+      syncCredentialFieldsState();
       if (!showFieldErrors()) {
         focusFirstInvalid();
         return;
@@ -219,6 +250,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (confirmBtn) {
       confirmBtn.addEventListener("click", function (event) {
         event.preventDefault();
+        syncCredentialFieldsState();
         if (!showFieldErrors()) {
           if (modal) {
             modal.hide();
