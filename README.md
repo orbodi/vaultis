@@ -100,6 +100,60 @@ Enregistrés sous `NITROKEY_BACKUP_ROOT` (défaut `backups/nitrokey/`), nom horo
 
 Fuseau : `Europe/Paris` (paramètre Django `TIME_ZONE`).
 
+### Transfert vers dossier Windows distant
+
+Après création locale du `.bkp`, l’application peut copier le fichier vers un répertoire configurable via `.env` :
+
+```env
+NITROKEY_WINDOWS_TRANSFER_DIR=/app/data/windows-transfer
+```
+
+Recommandé en Docker/Linux : monter un partage SMB/CIFS du PC Windows sur l’hôte, puis bind-mount ce point de montage dans le conteneur, et utiliser ce chemin comme `NITROKEY_WINDOWS_TRANSFER_DIR`.
+
+Si le transfert échoue, le job passe en échec avec message fonctionnel et le détail technique est dans les logs (`docker compose logs -f web`).
+
+### Transfert SMB direct (username/password)
+
+Si tu veux envoyer directement sur un PC Windows distant sans montage préalable, configure :
+
+```env
+NITROKEY_WINDOWS_SMB_HOST=172.16.50.10
+NITROKEY_WINDOWS_SMB_SHARE=Backups
+NITROKEY_WINDOWS_SMB_REMOTE_DIR=NetHSM
+NITROKEY_WINDOWS_SMB_USERNAME=svc_backup
+NITROKEY_WINDOWS_SMB_PASSWORD=mot-de-passe
+NITROKEY_WINDOWS_SMB_DOMAIN=
+NITROKEY_WINDOWS_SMB_PORT=445
+```
+
+Quand `NITROKEY_WINDOWS_SMB_HOST` et `NITROKEY_WINDOWS_SMB_SHARE` sont définis, ce mode est prioritaire sur `NITROKEY_WINDOWS_TRANSFER_DIR`.
+
+### Transfert SCP direct (username/password)
+
+Si vous utilisez déjà une commande du type `scp fichier.bkp username@host:E:\NetConfig_Backup`, configure :
+
+```env
+NITROKEY_WINDOWS_SCP_HOST=172.16.12.187
+NITROKEY_WINDOWS_SCP_PORT=22
+NITROKEY_WINDOWS_SCP_USERNAME=username
+NITROKEY_WINDOWS_SCP_PASSWORD=mot-de-passe
+NITROKEY_WINDOWS_SCP_REMOTE_DIR=E:/NetConfig_Backup
+```
+
+Le serveur Windows doit avoir OpenSSH/SFTP activé.
+
+### Sélection de la méthode
+
+```env
+NITROKEY_TRANSFER_MODE=auto
+```
+
+- `auto` : essaie `smb`, puis `scp`, puis `dir`
+- `smb` : force SMB
+- `scp` : force SCP
+- `dir` : force copie dans `NITROKEY_WINDOWS_TRANSFER_DIR`
+- `none` : pas de transfert distant
+
 ### Messages
 
 | Mode | `DJANGO_DEBUG` | Exemple de message |
@@ -148,6 +202,10 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 | `NITROKEY_NETHSM_USER` / `NITROKEY_NETHSM_PASSWORD` | Identifiants optionnels (sinon formulaire web) |
 | `NITROKEY_NETHSM_VERIFY_TLS` | `false` si certificat auto-signé (`curl -k`) |
 | `NITROKEY_BACKUP_ROOT` | Répertoire des fichiers `.bkp` (dans le conteneur, ex. `/app/data/backups/nitrokey`) |
+| `NITROKEY_TRANSFER_MODE` | `auto`, `smb`, `scp`, `dir`, `none` |
+| `NITROKEY_WINDOWS_TRANSFER_DIR` | Répertoire de copie post-backup (ex. dossier monté depuis un partage Windows) |
+| `NITROKEY_WINDOWS_SMB_*` | Paramètres SMB pour transfert direct vers un partage Windows distant |
+| `NITROKEY_WINDOWS_SCP_*` | Paramètres SCP pour transfert direct vers un hôte Windows |
 | `VAULTIS_HOST_DATA_DIR` | Dossier hôte monté sur `/app/data` |
 | `POSTGRES_HOST_DATA_DIR` | Dossier hôte pour les données PostgreSQL |
 | `WEB_PORT` | Port exposé Docker (défaut `8010`) |

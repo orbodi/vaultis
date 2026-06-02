@@ -104,6 +104,82 @@ class NitrokeyAdapterTests(TestCase):
         self.assertEqual(request.get_header("Accept"), "application/octet-stream")
         self.assertTrue(request.get_header("Authorization").startswith("Basic "))
 
+    @patch("equipment.adapters.nitrokey._fetch_nethsm_backup", return_value=b"x" * 1024)
+    def test_nethsm_transfers_to_windows_dir_when_configured(self, _mock_fetch):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        self.equipment.extra = {"integration": "nethsm"}
+        self.equipment.save(update_fields=["extra"])
+        job = BackupJob.objects.create(equipment=self.equipment, equipment_host=self.host)
+        job._backup_credentials = {"username": "backup1", "password": "secret"}
+
+        with TemporaryDirectory() as local_dir, TemporaryDirectory() as windows_dir:
+            with override_settings(
+                NITROKEY_BACKUP_ROOT=Path(local_dir),
+                NITROKEY_WINDOWS_TRANSFER_DIR=Path(windows_dir),
+            ):
+                message = NitrokeyAdapter().run_backup(job)
+
+            local_files = list(Path(local_dir).glob("*.bkp"))
+            windows_files = list(Path(windows_dir).glob("*.bkp"))
+            self.assertEqual(len(local_files), 1)
+            self.assertEqual(len(windows_files), 1)
+            self.assertEqual(local_files[0].name, windows_files[0].name)
+            self.assertEqual(local_files[0].read_bytes(), windows_files[0].read_bytes())
+            self.assertIn("transféré", message.lower())
+
+    @patch("equipment.adapters.nitrokey._fetch_nethsm_backup", return_value=b"x" * 1024)
+    @patch("equipment.adapters.nitrokey._transfer_to_windows_smb")
+    def test_nethsm_transfers_to_windows_smb_when_configured(self, mock_transfer, _mock_fetch):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        self.equipment.extra = {"integration": "nethsm"}
+        self.equipment.save(update_fields=["extra"])
+        job = BackupJob.objects.create(equipment=self.equipment, equipment_host=self.host)
+        job._backup_credentials = {"username": "backup1", "password": "secret"}
+
+        with TemporaryDirectory() as local_dir:
+            with override_settings(
+                NITROKEY_BACKUP_ROOT=Path(local_dir),
+                NITROKEY_WINDOWS_SMB_HOST="win-backup.local",
+                NITROKEY_WINDOWS_SMB_SHARE="Backups",
+                NITROKEY_WINDOWS_SMB_REMOTE_DIR="NetHSM",
+                NITROKEY_WINDOWS_SMB_USERNAME="svc_backup",
+                NITROKEY_WINDOWS_SMB_PASSWORD="passw0rd!",
+            ):
+                message = NitrokeyAdapter().run_backup(job)
+
+        mock_transfer.assert_called_once()
+        self.assertIn("transféré", message.lower())
+
+    @patch("equipment.adapters.nitrokey._fetch_nethsm_backup", return_value=b"x" * 1024)
+    @patch("equipment.adapters.nitrokey._transfer_to_windows_scp")
+    def test_nethsm_transfers_to_windows_scp_when_configured(self, mock_transfer, _mock_fetch):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        self.equipment.extra = {"integration": "nethsm"}
+        self.equipment.save(update_fields=["extra"])
+        job = BackupJob.objects.create(equipment=self.equipment, equipment_host=self.host)
+        job._backup_credentials = {"username": "backup1", "password": "secret"}
+
+        with TemporaryDirectory() as local_dir:
+            with override_settings(
+                NITROKEY_BACKUP_ROOT=Path(local_dir),
+                NITROKEY_TRANSFER_MODE="scp",
+                NITROKEY_WINDOWS_SCP_HOST="172.16.12.187",
+                NITROKEY_WINDOWS_SCP_PORT=22,
+                NITROKEY_WINDOWS_SCP_USERNAME="username",
+                NITROKEY_WINDOWS_SCP_PASSWORD="password",
+                NITROKEY_WINDOWS_SCP_REMOTE_DIR="E:/NetConfig_Backup",
+            ):
+                message = NitrokeyAdapter().run_backup(job)
+
+        mock_transfer.assert_called_once()
+        self.assertIn("transféré", message.lower())
+
 
 class RunBackupJobTests(TestCase):
     def setUp(self):

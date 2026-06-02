@@ -193,6 +193,21 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Nitrokey / NetHSM (adaptateur equipment.adapters.nitrokey)
 _backup_root = os.environ.get("NITROKEY_BACKUP_ROOT", "").strip()
 NITROKEY_BACKUP_ROOT = Path(_backup_root) if _backup_root else BASE_DIR / "backups" / "nitrokey"
+NITROKEY_TRANSFER_MODE = os.environ.get("NITROKEY_TRANSFER_MODE", "auto").strip().lower()
+_windows_transfer_dir = os.environ.get("NITROKEY_WINDOWS_TRANSFER_DIR", "").strip()
+NITROKEY_WINDOWS_TRANSFER_DIR = Path(_windows_transfer_dir) if _windows_transfer_dir else None
+NITROKEY_WINDOWS_SMB_HOST = os.environ.get("NITROKEY_WINDOWS_SMB_HOST", "").strip()
+NITROKEY_WINDOWS_SMB_SHARE = os.environ.get("NITROKEY_WINDOWS_SMB_SHARE", "").strip()
+NITROKEY_WINDOWS_SMB_REMOTE_DIR = os.environ.get("NITROKEY_WINDOWS_SMB_REMOTE_DIR", "").strip()
+NITROKEY_WINDOWS_SMB_USERNAME = os.environ.get("NITROKEY_WINDOWS_SMB_USERNAME", "").strip()
+NITROKEY_WINDOWS_SMB_PASSWORD = os.environ.get("NITROKEY_WINDOWS_SMB_PASSWORD", "")
+NITROKEY_WINDOWS_SMB_DOMAIN = os.environ.get("NITROKEY_WINDOWS_SMB_DOMAIN", "").strip()
+NITROKEY_WINDOWS_SMB_PORT = int(os.environ.get("NITROKEY_WINDOWS_SMB_PORT", "445"))
+NITROKEY_WINDOWS_SCP_HOST = os.environ.get("NITROKEY_WINDOWS_SCP_HOST", "").strip()
+NITROKEY_WINDOWS_SCP_PORT = int(os.environ.get("NITROKEY_WINDOWS_SCP_PORT", "22"))
+NITROKEY_WINDOWS_SCP_USERNAME = os.environ.get("NITROKEY_WINDOWS_SCP_USERNAME", "").strip()
+NITROKEY_WINDOWS_SCP_PASSWORD = os.environ.get("NITROKEY_WINDOWS_SCP_PASSWORD", "")
+NITROKEY_WINDOWS_SCP_REMOTE_DIR = os.environ.get("NITROKEY_WINDOWS_SCP_REMOTE_DIR", "").strip()
 NITROKEY_NETHSM_VERIFY_TLS = os.environ.get(
     "NITROKEY_NETHSM_VERIFY_TLS",
     "true",
