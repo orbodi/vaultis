@@ -22,9 +22,16 @@
           <div class="app-meta-label">Type</div>
           <span class="app-type-chip">{{ equipment.equipment_type.name }}</span>
         </div>
-        {% if host_list|length == 0 %}
+        {% if requires_host_selection and host_list|length == 0 %}
           <div class="alert alert-warning py-2 px-3 small mb-4" role="status">
             Aucun host configuré. Ajoutez des hosts depuis l’administration pour pouvoir lancer une sauvegarde.
+          </div>
+        {% endif %}
+        {% if is_arbor_aed %}
+          <div class="alert alert-secondary py-2 px-3 small mb-4" role="status">
+            Sauvegarde Arbor AED : DC actifs
+            <code>{{ arbor_active_dcs_display|default:"(ARBOR_AED_ACTIVE_DCS non défini)" }}</code>
+            — répertoires source et distant configurés dans le <code>.env</code>.
           </div>
         {% endif %}
         <hr class="my-4 opacity-25">
@@ -34,38 +41,41 @@
           class="js-backup-form"
           id="backup-form"
           novalidate
+          {% if is_arbor_aed %}data-arbor-dcs="{{ arbor_active_dcs_display }}"{% endif %}
         >
           {% csrf_token %}
           <div class="alert alert-danger py-2 px-3 small mb-3 d-none js-backup-form-errors" role="alert"></div>
-          {% if host_list|length == 1 %}
-            <input type="hidden" name="equipment_host_id" value="{{ host_list.0.pk }}" id="id_equipment_host_id">
-            <div class="mb-3">
-              <div class="app-meta-label">Host cible</div>
-              <p class="mb-0 small js-backup-host-label">{{ host_list.0.select_display }}</p>
-            </div>
-          {% elif host_list|length > 1 %}
-            <div class="mb-3">
-              <label class="form-label app-meta-label" for="id_equipment_host_id">
-                Host cible <span class="text-danger" aria-hidden="true">*</span>
-              </label>
-              <select
-                name="equipment_host_id"
-                id="id_equipment_host_id"
-                class="form-select"
-                required
-                aria-required="true"
-                aria-describedby="host-help host-error"
-              >
-                <option value="" selected disabled hidden>Choisir un host…</option>
-                {% for h in host_list %}
-                  <option value="{{ h.pk }}">{{ h.select_display }}</option>
-                {% endfor %}
-              </select>
-              <div id="host-error" class="invalid-feedback js-field-error">Veuillez sélectionner un host.</div>
-              <p id="host-help" class="form-text small mb-0 text-muted">
-                La sauvegarde sera exécutée contre l’adresse sélectionnée.
-              </p>
-            </div>
+          {% if requires_host_selection %}
+            {% if host_list|length == 1 %}
+              <input type="hidden" name="equipment_host_id" value="{{ host_list.0.pk }}" id="id_equipment_host_id">
+              <div class="mb-3">
+                <div class="app-meta-label">Host cible</div>
+                <p class="mb-0 small js-backup-host-label">{{ host_list.0.select_display }}</p>
+              </div>
+            {% elif host_list|length > 1 %}
+              <div class="mb-3">
+                <label class="form-label app-meta-label" for="id_equipment_host_id">
+                  Host cible <span class="text-danger" aria-hidden="true">*</span>
+                </label>
+                <select
+                  name="equipment_host_id"
+                  id="id_equipment_host_id"
+                  class="form-select"
+                  required
+                  aria-required="true"
+                  aria-describedby="host-help host-error"
+                >
+                  <option value="" selected disabled hidden>Choisir un host…</option>
+                  {% for h in host_list %}
+                    <option value="{{ h.pk }}">{{ h.select_display }}</option>
+                  {% endfor %}
+                </select>
+                <div id="host-error" class="invalid-feedback js-field-error">Veuillez sélectionner un host.</div>
+                <p id="host-help" class="form-text small mb-0 text-muted">
+                  La sauvegarde sera exécutée contre l’adresse sélectionnée.
+                </p>
+              </div>
+            {% endif %}
           {% endif %}
           {% if requires_api_credentials %}
             <div class="mb-4 js-credentials-block">
@@ -141,7 +151,7 @@
           <button
             type="button"
             class="btn btn-primary app-btn-accent w-100 js-backup-open"
-            {% if host_list|length == 0 %}disabled{% endif %}
+            {% if requires_host_selection and host_list|length == 0 %}disabled{% endif %}
           >
             Lancer une sauvegarde
           </button>
@@ -206,7 +216,7 @@
 
 {% block extra_modals %}
 {% with host_list=equipment.hosts.all %}
-  {% if host_list|length > 0 %}
+  {% if not requires_host_selection or host_list|length > 0 %}
     <div
       class="modal fade"
       id="backupConfirmModal"

@@ -42,6 +42,9 @@ services:
     volumes:
       - ${VAULTIS_HOST_DATA_DIR:-./data}:/app/data
       - ${VAULTIS_SECRETS_DIR:-./secrets}:/app/secrets:ro
+      # Arbor AED : même chemin hôte/conteneur que ARBOR_AED_SOURCE_DIR_DC01 / _DC02 dans .env
+      - ${ARBOR_AED_SOURCE_DIR_DC01:-/tmp/vaultis-arbor-dc01-skip}:/tmp/vaultis-arbor-dc01-skip:ro
+      - ${ARBOR_AED_SOURCE_DIR_DC02:-/tmp/vaultis-arbor-dc02-skip}:/tmp/vaultis-arbor-dc02-skip:ro
     depends_on:
       db:
         condition: service_healthy

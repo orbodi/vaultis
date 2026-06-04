@@ -37,7 +37,9 @@ def equipment_detail(request, pk: int):
         "triggered_by",
         "equipment_host",
     )[:5]
-    is_nitrokey = equipment.equipment_type.slug == "nitrokey"
+    slug = equipment.equipment_type.slug
+    is_nitrokey = slug == "nitrokey"
+    is_arbor_aed = slug == "ddos"
     has_default_credentials = default_nethsm_credentials_configured() if is_nitrokey else False
     return render(
         request,
@@ -45,7 +47,10 @@ def equipment_detail(request, pk: int):
         {
             "equipment": equipment,
             "jobs": jobs,
+            "requires_host_selection": not is_arbor_aed,
             "requires_api_credentials": is_nitrokey,
+            "is_arbor_aed": is_arbor_aed,
+            "arbor_active_dcs_display": getattr(settings, "ARBOR_AED_ACTIVE_DCS", "") if is_arbor_aed else "",
             "has_default_nethsm_credentials": has_default_credentials,
             "default_nethsm_username": getattr(settings, "NITROKEY_NETHSM_USER", "") if has_default_credentials else "",
         },
@@ -56,18 +61,20 @@ def equipment_detail(request, pk: int):
 @require_POST
 def equipment_backup(request, pk: int):
     equipment = get_object_or_404(Equipment, pk=pk)
-    host_qs = EquipmentHost.objects.filter(equipment=equipment).order_by(
-        "sort_order",
-        "pk",
-    )
-    if not host_qs.exists():
-        messages.error(request, "Aucun host configuré.")
-        return redirect("equipment_detail", pk=equipment.pk)
-    raw_host_id = request.POST.get("equipment_host_id", "").strip()
-    if not raw_host_id.isdigit():
-        messages.error(request, "Host requis.")
-        return redirect("equipment_detail", pk=equipment.pk)
-    equipment_host = get_object_or_404(host_qs, pk=int(raw_host_id))
+    equipment_host = None
+    if equipment.equipment_type.slug != "ddos":
+        host_qs = EquipmentHost.objects.filter(equipment=equipment).order_by(
+            "sort_order",
+            "pk",
+        )
+        if not host_qs.exists():
+            messages.error(request, "Aucun host configuré.")
+            return redirect("equipment_detail", pk=equipment.pk)
+        raw_host_id = request.POST.get("equipment_host_id", "").strip()
+        if not raw_host_id.isdigit():
+            messages.error(request, "Host requis.")
+            return redirect("equipment_detail", pk=equipment.pk)
+        equipment_host = get_object_or_404(host_qs, pk=int(raw_host_id))
 
     credentials = None
     if equipment.equipment_type.slug == "nitrokey":

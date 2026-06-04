@@ -105,7 +105,11 @@ def arbor_source_dir_for_dc(dc: str) -> Path:
         )
     path = dirs[dc]
     if not path.is_dir():
-        raise BackupAdapterError(f"Dossier source Arbor AED introuvable pour {dc} : {path}")
+        raise BackupAdapterError(
+            f"Dossier source introuvable pour {dc} dans le conteneur : {path}. "
+            f"Vérifier ARBOR_AED_SOURCE_DIR_{dc} et monter ce chemin hôte dans docker-compose "
+            f"(le conteneur doit voir le même répertoire que sur l'hôte)."
+        )
     return path
 
 

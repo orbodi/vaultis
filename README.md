@@ -210,6 +210,15 @@ E:/NetConfig_Backup/ArborAED/DC02/2026-06-03/full|inc/
 
 Chaque DC actif doit avoir `ARBOR_AED_REMOTE_PARENT_DIR_DCxx` défini dans `.env`.
 
+Pas de sélection de host sur la fiche Arbor AED (DC pilotés par `ARBOR_AED_ACTIVE_DCS`).
+
+**Docker** : `ARBOR_AED_SOURCE_DIR_DCxx` doit être un chemin **visible dans le conteneur**.  
+`docker-compose.yml` monte automatiquement `${ARBOR_AED_SOURCE_DIR_DC01}` et `_DC02` (même chemin hôte → conteneur). Exemple :
+
+```env
+ARBOR_AED_SOURCE_DIR_DC01=/home/mdoman/net-backups
+```
+
 SCP : réutilise `NITROKEY_WINDOWS_SCP_*` si `ARBOR_AED_SCP_*` est vide.
 
 Optionnel : `ARBOR_AED_MOVE_SOURCE=true` pour **déplacer** les fichiers source (sinon **copie**). Fichiers non reconnus : ignorés (compteur dans le message du job).

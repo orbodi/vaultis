@@ -1,4 +1,4 @@
-/** vaultis app.js v20260204 */
+/** vaultis app.js v20260205 */
 /**
  * Sauvegarde : validation avec messages visibles, puis modal de confirmation.
  */
@@ -208,8 +208,12 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       if (isCustomCredentials() && usernameInput && usernameInput.value.trim()) {
         lines.push("Identifiant API : " + usernameInput.value.trim());
-      } else if (!forceCustomCredentials) {
+      } else if (!forceCustomCredentials && usernameInput) {
         lines.push("Identifiants : par défaut (serveur)");
+      }
+      var arborDcs = form.getAttribute("data-arbor-dcs");
+      if (!hostSelect && arborDcs) {
+        lines.push("DC actifs : " + arborDcs);
       }
       summaryEl.textContent = lines.join(" — ");
     }
