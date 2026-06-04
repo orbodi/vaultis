@@ -212,12 +212,14 @@ Chaque DC actif doit avoir `ARBOR_AED_REMOTE_PARENT_DIR_DCxx` défini dans `.env
 
 Pas de sélection de host sur la fiche Arbor AED (DC pilotés par `ARBOR_AED_ACTIVE_DCS`).
 
-**Docker** : `ARBOR_AED_SOURCE_DIR_DCxx` doit être un chemin **visible dans le conteneur**.  
-`docker-compose.yml` monte automatiquement `${ARBOR_AED_SOURCE_DIR_DC01}` et `_DC02` (même chemin hôte → conteneur). Exemple :
+**Docker** : séparer le chemin **hôte** (bind mount) et le chemin **conteneur** (lu par Django) :
 
 ```env
-ARBOR_AED_SOURCE_DIR_DC01=/home/mdoman/net-backups
+ARBOR_AED_SOURCE_HOST_DC01=/home/mdoman/net-backups
+ARBOR_AED_SOURCE_DIR_DC01=/app/arbor/incoming/dc01
 ```
+
+`docker-compose.yml` monte `ARBOR_AED_SOURCE_HOST_DC01` (ou, à défaut, l’ancienne variable `ARBOR_AED_SOURCE_DIR_DC01`) vers `/app/arbor/incoming/dc01`. Après modification du `.env` : `docker compose up -d --force-recreate web`, puis `docker compose exec web ls -la /app/arbor/incoming/dc01`.
 
 SCP : réutilise `NITROKEY_WINDOWS_SCP_*` si `ARBOR_AED_SCP_*` est vide.
 
@@ -281,7 +283,8 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 | `POSTGRES_HOST_DATA_DIR` | Dossier hôte pour les données PostgreSQL |
 | `WEB_PORT` | Port exposé Docker (défaut `8010`) |
 | `ARBOR_AED_ACTIVE_DCS` | DC à traiter, ex. `DC01` ou `DC01,DC02` |
-| `ARBOR_AED_SOURCE_DIR_DC01` / `_DC02` | Dossiers incoming par datacenter |
+| `ARBOR_AED_SOURCE_HOST_DC01` / `_DC02` | Chemin hôte pour le bind mount Docker |
+| `ARBOR_AED_SOURCE_DIR_DC01` / `_DC02` | Dossiers incoming lus dans le conteneur (ex. `/app/arbor/incoming/dc01`) |
 | `ARBOR_AED_REMOTE_PARENT_DIR_DC01` / `_DC02` | Dossier mère distant SCP par DC (obligatoire si DC actif) |
 | `ARBOR_AED_MOVE_SOURCE` | `true` pour déplacer au lieu de copier depuis la source |
 

@@ -12,6 +12,12 @@ from .adapters.base import BackupAdapterError
 
 ARBOR_DC_KEYS = ("DC01", "DC02")
 
+# Chemins fixes montés par docker-compose (côté conteneur)
+ARBOR_CONTAINER_SOURCE_DIRS: dict[str, Path] = {
+    "DC01": Path("/app/arbor/incoming/dc01"),
+    "DC02": Path("/app/arbor/incoming/dc02"),
+}
+
 
 def normalize_dc_key(value: str) -> str | None:
     """Normalise DC01 / DC02."""
@@ -103,14 +109,23 @@ def arbor_source_dir_for_dc(dc: str) -> Path:
         raise BackupAdapterError(
             f"Dossier source non configuré pour {dc} (ARBOR_AED_SOURCE_DIR_{dc})."
         )
-    path = dirs[dc]
-    if not path.is_dir():
-        raise BackupAdapterError(
-            f"Dossier source introuvable pour {dc} dans le conteneur : {path}. "
-            f"Vérifier ARBOR_AED_SOURCE_DIR_{dc} et monter ce chemin hôte dans docker-compose "
-            f"(le conteneur doit voir le même répertoire que sur l'hôte)."
-        )
-    return path
+    configured = dirs[dc]
+    if configured.is_dir():
+        return configured
+
+    mounted = ARBOR_CONTAINER_SOURCE_DIRS.get(dc)
+    if mounted is not None and mounted.is_dir():
+        return mounted
+
+    container_hint = mounted or configured
+    raise BackupAdapterError(
+        f"Dossier source introuvable pour {dc} dans le conteneur : {configured}. "
+        f"Sur l'hôte, définir ARBOR_AED_SOURCE_HOST_{dc} (ex. /home/mdoman/net-backups) ; "
+        f"dans le conteneur, utiliser ARBOR_AED_SOURCE_DIR_{dc}={container_hint} "
+        f"(monté par docker-compose). Puis recréer les conteneurs : "
+        f"docker compose up -d --force-recreate web. "
+        f"Vérifier : docker compose exec web ls -la {container_hint}"
+    )
 
 
 def arbor_staging_root(job_id: int) -> Path:
