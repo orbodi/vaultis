@@ -3,8 +3,15 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 
+from equipment.adapters.arbor_aed import Adapter as ArborAedAdapter
 from equipment.adapters.base import BackupAdapterError
 from equipment.adapters.nitrokey import Adapter as NitrokeyAdapter
+from equipment.arbor_aed_config import (
+    arbor_active_dcs,
+    arbor_source_dir_for_dc,
+    normalize_dc_key,
+)
+from equipment.arbor_aed_files import classify_arbor_filename, organize_into_staging, scan_arbor_source
 from equipment.models import BackupJob, Equipment, EquipmentHost, EquipmentType
 from equipment.nethsm_credentials import default_nethsm_credentials_configured
 from equipment.services import run_backup_job
@@ -250,3 +257,135 @@ class RunBackupJobTests(TestCase):
         self.assertIn(f"job_id={job.pk}", joined)
         self.assertIn("host=wkst-1.example.local", joined)
         self.assertIn("user=ops", joined)
+
+
+class ArborAedFileTests(TestCase):
+    def test_classify_full_manifest(self):
+        self.assertEqual(
+            classify_arbor_filename("arbor-backup-full.20260603T220003Z.manifest"),
+            ("full", "2026-06-03"),
+        )
+
+    def test_classify_full_vol(self):
+        self.assertEqual(
+            classify_arbor_filename("arbor-backup-full.20260603T220003Z.vol1.difftar.gz"),
+            ("full", "2026-06-03"),
+        )
+
+    def test_classify_full_signatures(self):
+        self.assertEqual(
+            classify_arbor_filename("arbor-backup-full-signatures.20260603T220003Z.sigtar.gz"),
+            ("full", "2026-06-03"),
+        )
+
+    def test_classify_inc_manifest(self):
+        self.assertEqual(
+            classify_arbor_filename(
+                "arbor-backup-inc.20260603T220003Z.to.20260603T230003Z.manifest"
+            ),
+            ("inc", "2026-06-03"),
+        )
+
+    def test_classify_new_signatures(self):
+        self.assertEqual(
+            classify_arbor_filename(
+                "arbor-backup-new-signatures.20260603T220003Z.to.20260603T230003Z.sigtar.gz"
+            ),
+            ("inc", "2026-06-03"),
+        )
+
+    def test_classify_unknown(self):
+        self.assertIsNone(classify_arbor_filename("random-file.txt"))
+
+    def test_organize_into_staging(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as src_dir, TemporaryDirectory() as staging_dir:
+            src = Path(src_dir)
+            (src / "arbor-backup-full.20260603T220003Z.manifest").write_bytes(b"a")
+            (src / "arbor-backup-inc.20260603T220003Z.to.20260603T230003Z.vol1.difftar.gz").write_bytes(
+                b"b"
+            )
+            files, skipped = scan_arbor_source(src)
+            self.assertEqual(len(files), 2)
+            self.assertEqual(skipped, [])
+            organize_into_staging(files, Path(staging_dir))
+            self.assertTrue((Path(staging_dir) / "2026-06-03" / "full" / "arbor-backup-full.20260603T220003Z.manifest").is_file())
+            self.assertTrue(
+                (
+                    Path(staging_dir)
+                    / "2026-06-03"
+                    / "inc"
+                    / "arbor-backup-inc.20260603T220003Z.to.20260603T230003Z.vol1.difftar.gz"
+                ).is_file()
+            )
+
+
+class ArborAedDcConfigTests(TestCase):
+    def test_normalize_dc_from_label(self):
+        self.assertEqual(normalize_dc_key("DC 01"), "DC01")
+        self.assertEqual(normalize_dc_key("DC02"), "DC02")
+
+    @override_settings(ARBOR_AED_ACTIVE_DCS="DC01, DC02")
+    def test_active_dcs_both(self):
+        self.assertEqual(arbor_active_dcs(), ["DC01", "DC02"])
+
+    @override_settings(ARBOR_AED_ACTIVE_DCS="DC02")
+    def test_active_dcs_single(self):
+        self.assertEqual(arbor_active_dcs(), ["DC02"])
+
+    def test_source_dir_per_dc(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as d1:
+            import os
+
+            os.environ["ARBOR_AED_SOURCE_DIR_DC01"] = d1
+            try:
+                self.assertEqual(arbor_source_dir_for_dc("DC01"), Path(d1))
+            finally:
+                os.environ.pop("ARBOR_AED_SOURCE_DIR_DC01", None)
+
+
+class ArborAedAdapterTests(TestCase):
+    @patch("equipment.adapters.arbor_aed.upload_tree", return_value=2)
+    def test_run_backup_organizes_and_uploads(self, mock_upload):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        eq_type, _ = EquipmentType.objects.get_or_create(
+            slug="ddos-test",
+            defaults={
+                "name": "Arbor AED test",
+                "adapter_key": "equipment.adapters.arbor_aed",
+            },
+        )
+        equipment = Equipment.objects.create(name="AED test", equipment_type=eq_type)
+        host = EquipmentHost.objects.create(equipment=equipment, label="AED", address="aed.local")
+        job = BackupJob.objects.create(equipment=equipment, equipment_host=host)
+
+        with TemporaryDirectory() as src_dir, TemporaryDirectory() as staging_dir:
+            src = Path(src_dir)
+            (src / "arbor-backup-full.20260603T220003Z.manifest").write_bytes(b"x")
+            import os
+
+            os.environ["ARBOR_AED_SOURCE_DIR_DC01"] = str(src)
+            try:
+                with override_settings(
+                    ARBOR_AED_ACTIVE_DCS="DC01",
+                    ARBOR_AED_STAGING_DIR=Path(staging_dir),
+                    ARBOR_AED_REMOTE_PARENT_DIRS={"DC01": "E:/Backups/AED/DC01"},
+                    NITROKEY_WINDOWS_SCP_HOST="172.16.12.187",
+                    NITROKEY_WINDOWS_SCP_USERNAME="user",
+                    NITROKEY_WINDOWS_SCP_PASSWORD="pass",
+                ):
+                    message = ArborAedAdapter().run_backup(job)
+            finally:
+                os.environ.pop("ARBOR_AED_SOURCE_DIR_DC01", None)
+
+        self.assertIn("Arbor AED", message)
+        self.assertIn("DC01", message)
+        self.assertIn("2026-06-03", message)
+        mock_upload.assert_called_once()

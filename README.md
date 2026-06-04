@@ -5,7 +5,8 @@ Application web Django pour inventorier des équipements réseau et lancer des s
 | Type | État |
 |------|------|
 | **Nitrokey / NetHSM** | API réelle (`POST /api/v1/system/backup`) |
-| F5, Palo Alto, DDoS, etc. | Simulé (adaptateur stub) |
+| **Arbor AED** | Classement `arbor-backup-*` + archivage SCP |
+| F5, Palo Alto, etc. | Simulé (adaptateur stub) |
 
 ## Prérequis
 
@@ -159,6 +160,62 @@ NITROKEY_TRANSFER_MODE=auto
 - `dir` : force copie dans `NITROKEY_WINDOWS_TRANSFER_DIR`
 - `none` : pas de transfert distant
 
+## Arbor AED (DDOS)
+
+Pas d’appel API : l’adaptateur parcourt un **dossier source** contenant les fichiers déposés par l’AED, les classe par nom, puis les envoie en **SCP** vers une VM Windows.
+
+### Noms reconnus
+
+| Type | Préfixes de nom |
+|------|-----------------|
+| **full** | `arbor-backup-full.`, `arbor-backup-full-signatures.` |
+| **inc** | `arbor-backup-inc.`, `arbor-backup-new-signatures.` |
+
+La date de dossier est extraite du segment `YYYYMMDD` (ex. `20260603` → dossier `2026-06-03`).
+
+### Arborescence produite (distant)
+
+```text
+E:/NetConfig_Backup/ArborAED/
+  2026-06-03/
+    full/
+      arbor-backup-full.20260603T220003Z.manifest
+      ...
+    inc/
+      arbor-backup-inc.20260603T220003Z.to.20260603T230003Z.manifest
+      ...
+```
+
+### Configuration `.env` (DC01 / DC02)
+
+Un **seul host** sur la fiche équipement. Les DC actifs et leurs dossiers incoming se règlent dans `.env` :
+
+```env
+ARBOR_AED_ACTIVE_DCS=DC01,DC02
+ARBOR_AED_SOURCE_DIR_DC01=/app/data/arbor/incoming/dc01
+ARBOR_AED_SOURCE_DIR_DC02=/app/data/arbor/incoming/dc02
+ARBOR_AED_REMOTE_PARENT_DIR_DC01=E:/NetConfig_Backup/ArborAED/DC01
+ARBOR_AED_REMOTE_PARENT_DIR_DC02=E:/NetConfig_Backup/ArborAED/DC02
+```
+
+- `ARBOR_AED_ACTIVE_DCS=DC01` → traite uniquement DC01 (répertoire source + distant DC01).
+- `ARBOR_AED_ACTIVE_DCS=DC01,DC02` → traite les deux dans le même job.
+
+Arborescence distante par DC :
+
+```text
+E:/NetConfig_Backup/ArborAED/DC01/2026-06-03/full|inc/
+E:/NetConfig_Backup/ArborAED/DC02/2026-06-03/full|inc/
+```
+
+Chaque DC actif doit avoir `ARBOR_AED_REMOTE_PARENT_DIR_DCxx` défini dans `.env`.
+
+SCP : réutilise `NITROKEY_WINDOWS_SCP_*` si `ARBOR_AED_SCP_*` est vide.
+
+Optionnel : `ARBOR_AED_MOVE_SOURCE=true` pour **déplacer** les fichiers source (sinon **copie**). Fichiers non reconnus : ignorés (compteur dans le message du job).
+
+Lancer depuis la fiche équipement type **Arbor AED** (bouton « Lancer une sauvegarde »).
+
 ### Messages
 
 | Mode | `DJANGO_DEBUG` | Exemple de message |
@@ -214,6 +271,10 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 | `VAULTIS_HOST_DATA_DIR` | Dossier hôte monté sur `/app/data` |
 | `POSTGRES_HOST_DATA_DIR` | Dossier hôte pour les données PostgreSQL |
 | `WEB_PORT` | Port exposé Docker (défaut `8010`) |
+| `ARBOR_AED_ACTIVE_DCS` | DC à traiter, ex. `DC01` ou `DC01,DC02` |
+| `ARBOR_AED_SOURCE_DIR_DC01` / `_DC02` | Dossiers incoming par datacenter |
+| `ARBOR_AED_REMOTE_PARENT_DIR_DC01` / `_DC02` | Dossier mère distant SCP par DC (obligatoire si DC actif) |
+| `ARBOR_AED_MOVE_SOURCE` | `true` pour déplacer au lieu de copier depuis la source |
 
 **Accès par IP** (ex. `http://172.16.41.225:8010`) : ajouter l’IP dans `DJANGO_ALLOWED_HOSTS` et l’URL complète (avec port) dans `DJANGO_CSRF_TRUSTED_ORIGINS`. Garder `DJANGO_USE_HTTPS=false` sauf reverse proxy HTTPS.
 

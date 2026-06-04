@@ -242,3 +242,30 @@ NITROKEY_NETHSM_VERIFY_TLS = os.environ.get(
     "NITROKEY_NETHSM_VERIFY_TLS",
     "true",
 ).lower() in ("1", "true", "yes")
+
+# Arbor AED (adaptateur equipment.adapters.arbor_aed)
+_arbor_source = os.environ.get("ARBOR_AED_SOURCE_DIR", "").strip()
+ARBOR_AED_SOURCE_DIR = Path(_arbor_source) if _arbor_source else None
+ARBOR_AED_SOURCE_DIRS = {
+    "DC01": Path(p) if (p := os.environ.get("ARBOR_AED_SOURCE_DIR_DC01", "").strip()) else None,
+    "DC02": Path(p) if (p := os.environ.get("ARBOR_AED_SOURCE_DIR_DC02", "").strip()) else None,
+}
+ARBOR_AED_SOURCE_DIRS = {k: v for k, v in ARBOR_AED_SOURCE_DIRS.items() if v is not None}
+ARBOR_AED_ACTIVE_DCS = os.environ.get("ARBOR_AED_ACTIVE_DCS", "").strip()
+_arbor_staging = os.environ.get("ARBOR_AED_STAGING_DIR", "").strip()
+ARBOR_AED_STAGING_DIR = Path(_arbor_staging) if _arbor_staging else BASE_DIR / "backups" / "arbor_aed" / "staging"
+# Dossier mère distant SCP par DC (obligatoire pour chaque DC actif)
+ARBOR_AED_REMOTE_PARENT_DIRS = {
+    "DC01": os.environ.get("ARBOR_AED_REMOTE_PARENT_DIR_DC01", "").strip(),
+    "DC02": os.environ.get("ARBOR_AED_REMOTE_PARENT_DIR_DC02", "").strip(),
+}
+ARBOR_AED_MOVE_SOURCE = os.environ.get("ARBOR_AED_MOVE_SOURCE", "").lower() in ("1", "true", "yes")
+ARBOR_AED_SCP_HOST = os.environ.get("ARBOR_AED_SCP_HOST", "").strip()
+ARBOR_AED_SCP_PORT = int(os.environ.get("ARBOR_AED_SCP_PORT", "0") or "0") or None
+ARBOR_AED_SCP_USERNAME = os.environ.get("ARBOR_AED_SCP_USERNAME", "").strip()
+_arbor_scp_password_file = os.environ.get("ARBOR_AED_SCP_PASSWORD_FILE", "").strip()
+_arbor_scp_password = os.environ.get("ARBOR_AED_SCP_PASSWORD", "")
+if _arbor_scp_password_file:
+    ARBOR_AED_SCP_PASSWORD = Path(_arbor_scp_password_file).read_text(encoding="utf-8").strip("\r\n")
+else:
+    ARBOR_AED_SCP_PASSWORD = _arbor_scp_password
