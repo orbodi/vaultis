@@ -3,7 +3,7 @@ from django.db.models import Count, Max, Prefetch
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from .models import BackupJob, Equipment, EquipmentHost, EquipmentType
+from .models import BackupJob, BackupSchedule, Equipment, EquipmentHost, EquipmentType
 
 
 @admin.register(EquipmentType)
@@ -81,6 +81,22 @@ class BackupJobInline(admin.TabularInline):
             .select_related("triggered_by", "equipment_host")
             .order_by("-started_at")
         )
+
+
+@admin.register(BackupSchedule)
+class BackupScheduleAdmin(admin.ModelAdmin):
+    list_display = (
+        "equipment",
+        "is_enabled",
+        "frequency",
+        "run_time",
+        "next_run_at",
+        "last_run_at",
+    )
+    list_filter = ("is_enabled", "frequency")
+    search_fields = ("equipment__name",)
+    autocomplete_fields = ("equipment", "equipment_host")
+    readonly_fields = ("created_at", "updated_at", "last_run_at")
 
 
 class EquipmentHostInline(admin.TabularInline):

@@ -436,3 +436,68 @@ class ArborAedAdapterTests(TestCase):
         self.assertIn("DC01", message)
         self.assertIn("2026-06-03", message)
         mock_upload.assert_called_once()
+
+
+class BackupScheduleTests(TestCase):
+    def setUp(self):
+        self.eq_type = EquipmentType.objects.create(
+            slug="sched-test",
+            name="Sched test",
+            adapter_key="equipment.adapters.arbor_aed",
+        )
+        self.equipment = Equipment.objects.create(
+            name="Sched equipment",
+            equipment_type=self.eq_type,
+        )
+
+    @override_settings(TIME_ZONE="UTC")
+    def test_compute_next_run_daily(self):
+        import datetime
+
+        from equipment.models import BackupSchedule
+        from equipment.scheduler import compute_next_run
+
+        schedule = BackupSchedule(
+            equipment=self.equipment,
+            frequency=BackupSchedule.Frequency.DAILY,
+            run_time=datetime.time(3, 30),
+            is_enabled=True,
+        )
+        after = datetime.datetime(2026, 6, 4, 10, 0, tzinfo=datetime.timezone.utc)
+        nxt = compute_next_run(schedule, after=after)
+        self.assertEqual(nxt, datetime.datetime(2026, 6, 5, 3, 30, tzinfo=datetime.timezone.utc))
+
+    @override_settings(TIME_ZONE="UTC")
+    def test_compute_next_run_weekly(self):
+        import datetime
+
+        from equipment.models import BackupSchedule
+        from equipment.scheduler import compute_next_run
+
+        schedule = BackupSchedule(
+            equipment=self.equipment,
+            frequency=BackupSchedule.Frequency.WEEKLY,
+            weekday=BackupSchedule.Weekday.WEDNESDAY,
+            run_time=datetime.time(8, 0),
+            is_enabled=True,
+        )
+        # 2026-06-04 is Thursday
+        after = datetime.datetime(2026, 6, 4, 9, 0, tzinfo=datetime.timezone.utc)
+        nxt = compute_next_run(schedule, after=after)
+        self.assertEqual(nxt, datetime.datetime(2026, 6, 10, 8, 0, tzinfo=datetime.timezone.utc))
+
+    @override_settings(TIME_ZONE="UTC")
+    def test_schedule_summary_weekly(self):
+        import datetime
+
+        from equipment.models import BackupSchedule
+        from equipment.scheduler import schedule_summary
+
+        schedule = BackupSchedule(
+            equipment=self.equipment,
+            frequency=BackupSchedule.Frequency.WEEKLY,
+            weekday=BackupSchedule.Weekday.MONDAY,
+            run_time=datetime.time(2, 15),
+        )
+        self.assertIn("Lundi", schedule_summary(schedule))
+        self.assertIn("02:15", schedule_summary(schedule))

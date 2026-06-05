@@ -58,3 +58,37 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  scheduler:
+    build: .
+    entrypoint: ["/app/docker/scheduler-loop.sh"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: ${DJANGO_TIME_ZONE:-UTC}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings_prod}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-use-a-real-secret-key}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-vaultis}
+      POSTGRES_USER: ${POSTGRES_USER:-vaultis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vaultis}
+      DATABASE_URL: postgres://${POSTGRES_USER:-vaultis}:${POSTGRES_PASSWORD:-vaultis}@db:5432/${POSTGRES_DB:-vaultis}
+      NITROKEY_BACKUP_ROOT: ${NITROKEY_BACKUP_ROOT:-/app/data/backups/nitrokey}
+      BACKUP_SCHEDULER_INTERVAL_SECONDS: ${BACKUP_SCHEDULER_INTERVAL_SECONDS:-60}
+      ARBOR_AED_ACTIVE_DCS: ${ARBOR_AED_ACTIVE_DCS:-}
+      ARBOR_AED_SOURCE_DIR_DC01: ${ARBOR_AED_SOURCE_DIR_DC01:-/app/arbor/incoming/dc01}
+      ARBOR_AED_SOURCE_DIR_DC02: ${ARBOR_AED_SOURCE_DIR_DC02:-/app/arbor/incoming/dc02}
+      ARBOR_AED_REMOTE_PARENT_DIR_DC01: ${ARBOR_AED_REMOTE_PARENT_DIR_DC01:-}
+      ARBOR_AED_REMOTE_PARENT_DIR_DC02: ${ARBOR_AED_REMOTE_PARENT_DIR_DC02:-}
+    volumes:
+      - ${VAULTIS_HOST_DATA_DIR:-./data}:/app/data
+      - ${VAULTIS_SECRETS_DIR:-./secrets}:/app/secrets:ro
+      - ${ARBOR_AED_SOURCE_HOST_DC01:-${ARBOR_AED_SOURCE_DIR_DC01:-/tmp/vaultis-arbor-dc01-skip}}:/app/arbor/incoming/dc01:ro
+      - ${ARBOR_AED_SOURCE_HOST_DC02:-${ARBOR_AED_SOURCE_DIR_DC02:-/tmp/vaultis-arbor-dc02-skip}}:/app/arbor/incoming/dc02:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+

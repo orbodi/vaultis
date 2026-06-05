@@ -5,8 +5,10 @@ from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .models import BackupJob, Equipment, EquipmentHost
+from .forms import BackupScheduleForm
+from .models import BackupJob, BackupSchedule, Equipment, EquipmentHost
 from .nethsm_credentials import default_nethsm_credentials_configured
+from .scheduler import compute_next_run, schedule_summary
 from .services import run_backup_job
 
 _HOSTS_PREFETCH = Prefetch(
@@ -41,6 +43,9 @@ def equipment_detail(request, pk: int):
     is_nitrokey = slug == "nitrokey"
     is_arbor_aed = slug == "ddos"
     has_default_credentials = default_nethsm_credentials_configured() if is_nitrokey else False
+    schedule = BackupSchedule.objects.filter(equipment=equipment).first()
+    schedule_form = BackupScheduleForm(equipment=equipment, instance=schedule)
+    schedule_summary_text = schedule_summary(schedule) if schedule else ""
     return render(
         request,
         "equipment/detail.html",
@@ -53,6 +58,10 @@ def equipment_detail(request, pk: int):
             "arbor_active_dcs_display": getattr(settings, "ARBOR_AED_ACTIVE_DCS", "") if is_arbor_aed else "",
             "has_default_nethsm_credentials": has_default_credentials,
             "default_nethsm_username": getattr(settings, "NITROKEY_NETHSM_USER", "") if has_default_credentials else "",
+            "schedule": schedule,
+            "schedule_form": schedule_form,
+            "schedule_summary": schedule_summary_text,
+            "django_timezone": settings.TIME_ZONE,
         },
     )
 
@@ -97,6 +106,7 @@ def equipment_backup(request, pk: int):
         equipment=equipment,
         equipment_host=equipment_host,
         triggered_by=request.user,
+        trigger=BackupJob.Trigger.MANUAL,
     )
     run_backup_job(job, credentials=credentials)
     job.refresh_from_db()
@@ -104,4 +114,43 @@ def equipment_backup(request, pk: int):
         messages.success(request, job.message or "Sauvegarde réussie.")
     else:
         messages.error(request, job.message or "Échec de la sauvegarde.")
+    return redirect("equipment_detail", pk=equipment.pk)
+
+
+@login_required
+@require_POST
+def equipment_schedule(request, pk: int):
+    equipment = get_object_or_404(
+        Equipment.objects.select_related("equipment_type").prefetch_related(_HOSTS_PREFETCH),
+        pk=pk,
+    )
+    schedule = BackupSchedule.objects.filter(equipment=equipment).first()
+    form = BackupScheduleForm(equipment=equipment, data=request.POST, instance=schedule)
+
+    if not form.is_valid():
+        for err in form.non_field_errors():
+            messages.error(request, err)
+        for field, errors in form.errors.items():
+            if field == "__all__":
+                continue
+            for err in errors:
+                messages.error(request, f"Planification — {err}")
+        return redirect("equipment_detail", pk=equipment.pk)
+
+    saved = form.save(commit=False)
+    saved.equipment = equipment
+    if saved.is_enabled:
+        saved.next_run_at = compute_next_run(saved)
+    else:
+        saved.next_run_at = None
+    saved.save()
+
+    if saved.is_enabled:
+        messages.success(
+            request,
+            f"Planification enregistrée : {schedule_summary(saved)}. "
+            f"Prochaine exécution : {saved.next_run_at:%d/%m/%Y %H:%M} ({settings.TIME_ZONE}).",
+        )
+    else:
+        messages.success(request, "Planification automatique désactivée.")
     return redirect("equipment_detail", pk=equipment.pk)

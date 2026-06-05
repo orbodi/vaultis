@@ -156,6 +156,70 @@
             Lancer une sauvegarde
           </button>
         </form>
+
+        <hr class="my-4 opacity-25">
+
+        <form
+          method="post"
+          action="{% url 'equipment_schedule' equipment.pk %}"
+          class="js-schedule-form"
+          id="schedule-form"
+        >
+          {% csrf_token %}
+          <div class="app-meta-label mb-2">Planification automatique</div>
+          <p class="small text-muted mb-3">
+            Fuseau horaire : <code>{{ django_timezone }}</code>.
+            {% if requires_api_credentials %}
+              Les exécutions planifiées utilisent les identifiants NetHSM par défaut du serveur.
+            {% endif %}
+          </p>
+
+          <div class="form-check form-switch mb-3">
+            {{ schedule_form.is_enabled }}
+            <label class="form-check-label" for="{{ schedule_form.is_enabled.id_for_label }}">
+              Activer la planification
+            </label>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label app-meta-label" for="{{ schedule_form.frequency.id_for_label }}">Fréquence</label>
+            {{ schedule_form.frequency }}
+          </div>
+
+          <div class="mb-3 js-schedule-field-weekly{% if schedule_form.frequency.value != 'weekly' %} d-none{% endif %}">
+            <label class="form-label app-meta-label" for="{{ schedule_form.weekday.id_for_label }}">Jour de la semaine</label>
+            {{ schedule_form.weekday }}
+          </div>
+
+          <div class="mb-3 js-schedule-field-monthly{% if schedule_form.frequency.value != 'monthly' %} d-none{% endif %}">
+            <label class="form-label app-meta-label" for="{{ schedule_form.day_of_month.id_for_label }}">Jour du mois (1–28)</label>
+            {{ schedule_form.day_of_month }}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label app-meta-label" for="{{ schedule_form.run_time.id_for_label }}">Heure</label>
+            {{ schedule_form.run_time }}
+          </div>
+
+          {% if schedule_form.equipment_host.is_hidden %}
+            {{ schedule_form.equipment_host }}
+          {% elif requires_host_selection and host_list|length > 1 %}
+            <div class="mb-3">
+              <label class="form-label app-meta-label" for="{{ schedule_form.equipment_host.id_for_label }}">Host planifié</label>
+              {{ schedule_form.equipment_host }}
+            </div>
+          {% endif %}
+
+          {% if schedule and schedule.is_enabled and schedule.next_run_at %}
+            <p class="small text-muted mb-3">
+              Prochaine exécution :
+              <strong>{{ schedule.next_run_at|localtime|date:"d/m/Y H:i" }}</strong>
+              {% if schedule_summary %} — {{ schedule_summary }}{% endif %}
+            </p>
+          {% endif %}
+
+          <button type="submit" class="btn btn-outline-primary w-100">Enregistrer la planification</button>
+        </form>
       </div>
     </div>
   </div>
@@ -171,6 +235,7 @@
                   <th class="ps-4">Date</th>
                   <th>Statut</th>
                   <th>Host</th>
+                  <th>Origine</th>
                   <th>Utilisateur</th>
                   <th class="pe-4">Message</th>
                 </tr>
@@ -197,6 +262,13 @@
                         —
                       {% endif %}
                     </td>
+                    <td class="small text-nowrap">
+                      {% if job.trigger == 'scheduled' %}
+                        <span class="badge rounded-pill text-bg-info">Planifié</span>
+                      {% else %}
+                        <span class="badge rounded-pill text-bg-light text-dark border">Manuel</span>
+                      {% endif %}
+                    </td>
                     <td class="small">{% if job.triggered_by %}{{ job.triggered_by.username }}{% else %}—{% endif %}</td>
                     <td class="small text-break pe-4">{{ job.message|default:"—" }}</td>
                   </tr>
@@ -212,6 +284,28 @@
   </div>
 </div>
 {% endwith %}
+
+<div
+  id="backupProgressOverlay"
+  class="backup-progress-overlay d-none"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="backupProgressTitle"
+  aria-hidden="true"
+>
+  <div class="backup-progress-panel">
+    <div class="backup-progress-spinner" aria-hidden="true"></div>
+    <h2 class="h5 mb-2" id="backupProgressTitle">Sauvegarde en cours</h2>
+    <p class="small text-muted mb-3 js-backup-progress-equipment"></p>
+    <p class="small mb-3 js-backup-progress-status" aria-live="polite">Initialisation…</p>
+    <div class="progress backup-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="progress-bar progress-bar-striped progress-bar-animated js-backup-progress-fill"></div>
+    </div>
+    <p class="small text-muted mt-3 mb-0">
+      Ne fermez pas cette page. Les sauvegardes volumineuses (Arbor AED) peuvent prendre plus d’une heure.
+    </p>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_modals %}

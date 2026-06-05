@@ -236,6 +236,32 @@ Lancer depuis la fiche équipement type **Arbor AED** (bouton « Lancer une sauv
 | Dev | `true` | `Sauvegarde simulée — …` (si mode démo) |
 | Prod | `false` | `Backup enregistré — ….bkp (… Ko).` |
 
+## Planification automatique
+
+Sur chaque **fiche équipement**, section **Planification automatique** :
+
+| Fréquence | Comportement |
+|-----------|--------------|
+| **Tous les jours** | À l’heure choisie, chaque jour |
+| **Hebdomadaire** | Un jour de la semaine + heure (ex. mercredi 08:00) |
+| **Mensuel** | Jour du mois (1–28) + heure |
+
+L’heure utilise le fuseau `DJANGO_TIME_ZONE` (ex. `UTC`).
+
+**Nitrokey** : les jobs planifiés utilisent uniquement les identifiants par défaut du `.env` (`NITROKEY_NETHSM_*`).
+
+**Docker** : le service `scheduler` exécute `run_backup_schedules` toutes les 60 s (configurable) :
+
+```bash
+docker compose up -d scheduler
+# ou avec web + db :
+docker compose up -d
+```
+
+Variable optionnelle : `BACKUP_SCHEDULER_INTERVAL_SECONDS=60`.
+
+Les jobs planifiés apparaissent dans l’historique avec le badge **Planifié**.
+
 ## Mode production (hors Docker)
 
 ```powershell

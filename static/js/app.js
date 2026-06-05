@@ -1,8 +1,106 @@
-/** vaultis app.js v20260205 */
+/** vaultis app.js v20260605 */
 /**
- * Sauvegarde : validation avec messages visibles, puis modal de confirmation.
+ * Sauvegarde : validation, modal de confirmation, overlay de progression.
  */
 document.addEventListener("DOMContentLoaded", function () {
+  var progressOverlay = document.getElementById("backupProgressOverlay");
+  var progressFill = progressOverlay
+    ? progressOverlay.querySelector(".js-backup-progress-fill")
+    : null;
+  var progressStatus = progressOverlay
+    ? progressOverlay.querySelector(".js-backup-progress-status")
+    : null;
+  var progressEquipment = progressOverlay
+    ? progressOverlay.querySelector(".js-backup-progress-equipment")
+    : null;
+  var progressBar = progressOverlay
+    ? progressOverlay.querySelector(".backup-progress-bar")
+    : null;
+
+  var progressTimer = null;
+  var statusTimer = null;
+  var progressValue = 0;
+
+  var defaultStatusMessages = [
+    "Connexion à l’équipement…",
+    "Exécution de la sauvegarde…",
+    "Finalisation…",
+  ];
+
+  var arborStatusMessages = [
+    "Lecture des fichiers source Arbor AED…",
+    "Classement full / inc et copie locale…",
+    "Transfert SCP vers la VM Windows…",
+    "Envoi des volumes (opération longue)…",
+  ];
+
+  function clearProgressTimers() {
+    if (progressTimer) {
+      window.clearInterval(progressTimer);
+      progressTimer = null;
+    }
+    if (statusTimer) {
+      window.clearInterval(statusTimer);
+      statusTimer = null;
+    }
+  }
+
+  function setProgressValue(value) {
+    progressValue = Math.min(92, Math.max(0, value));
+    if (progressFill) {
+      progressFill.style.width = progressValue + "%";
+    }
+    if (progressBar) {
+      progressBar.setAttribute("aria-valuenow", String(Math.round(progressValue)));
+    }
+  }
+
+  function startStatusRotation(messages) {
+    if (!progressStatus || !messages.length) {
+      return;
+    }
+    var index = 0;
+    progressStatus.textContent = messages[0];
+    statusTimer = window.setInterval(function () {
+      index = (index + 1) % messages.length;
+      progressStatus.textContent = messages[index];
+    }, 6000);
+  }
+
+  function showBackupProgress(options) {
+    if (!progressOverlay) {
+      return;
+    }
+
+    clearProgressTimers();
+    progressValue = 0;
+    setProgressValue(0);
+
+    if (progressEquipment && options.equipmentName) {
+      progressEquipment.textContent = options.equipmentName;
+    }
+
+    var messages = options.isArbor ? arborStatusMessages : defaultStatusMessages;
+    startStatusRotation(messages);
+
+    progressOverlay.classList.remove("d-none");
+    progressOverlay.setAttribute("aria-hidden", "false");
+    document.body.classList.add("backup-in-progress");
+
+    progressTimer = window.setInterval(function () {
+      var remaining = 92 - progressValue;
+      var step = remaining > 30 ? 1.2 : remaining > 10 ? 0.35 : 0.08;
+      setProgressValue(progressValue + step);
+    }, 900);
+
+    window.addEventListener("beforeunload", preventUnloadWhileBackup);
+  }
+
+  function preventUnloadWhileBackup(event) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+
   var modalEl = document.getElementById("backupConfirmModal");
   if (!modalEl) {
     return;
@@ -10,6 +108,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (modalEl.parentElement !== document.body) {
     document.body.appendChild(modalEl);
+  }
+
+  if (progressOverlay && progressOverlay.parentElement !== document.body) {
+    document.body.appendChild(progressOverlay);
   }
 
   var modal =
@@ -35,6 +137,8 @@ document.addEventListener("DOMContentLoaded", function () {
     var showCustomBtn = form.querySelector(".js-toggle-custom-credentials");
     var forceCustomCredentials =
       customCredentialsEl && customCredentialsEl.getAttribute("data-force-visible") === "true";
+    var equipmentTitle = document.querySelector(".app-page-title");
+    var isArborForm = Boolean(form.getAttribute("data-arbor-dcs"));
 
     var rules = [];
     if (hostSelect) {
@@ -270,15 +374,49 @@ document.addEventListener("DOMContentLoaded", function () {
           focusFirstInvalid();
           return;
         }
-        if (typeof form.requestSubmit === "function") {
-          form.requestSubmit();
-        } else {
-          form.submit();
-        }
+
+        openBtn.disabled = true;
+        confirmBtn.disabled = true;
+        confirmBtn.setAttribute("aria-busy", "true");
+
+        showBackupProgress({
+          equipmentName: equipmentTitle ? equipmentTitle.textContent.trim() : "",
+          isArbor: isArborForm,
+        });
+
         if (modal) {
           modal.hide();
         }
+
+        window.setTimeout(function () {
+          if (typeof form.requestSubmit === "function") {
+            form.requestSubmit();
+          } else {
+            form.submit();
+          }
+        }, 120);
       });
     }
+  });
+
+  document.querySelectorAll(".js-schedule-form").forEach(function (form) {
+    var frequencySelect = form.querySelector(".js-schedule-frequency");
+    var weeklyField = form.querySelector(".js-schedule-field-weekly");
+    var monthlyField = form.querySelector(".js-schedule-field-monthly");
+
+    function syncScheduleFields() {
+      var value = frequencySelect ? frequencySelect.value : "daily";
+      if (weeklyField) {
+        weeklyField.classList.toggle("d-none", value !== "weekly");
+      }
+      if (monthlyField) {
+        monthlyField.classList.toggle("d-none", value !== "monthly");
+      }
+    }
+
+    if (frequencySelect) {
+      frequencySelect.addEventListener("change", syncScheduleFields);
+    }
+    syncScheduleFields();
   });
 });
