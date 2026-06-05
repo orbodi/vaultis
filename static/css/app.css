@@ -523,13 +523,18 @@ body.backup-in-progress {
 .backup-progress-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1070;
-  display: flex;
+  z-index: 2000;
+  display: none;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
   background: rgba(15, 23, 42, 0.62);
   backdrop-filter: blur(4px);
+}
+
+.backup-progress-overlay.backup-progress-overlay--visible,
+.backup-progress-overlay:not(.d-none) {
+  display: flex !important;
 }
 
 .backup-progress-panel {

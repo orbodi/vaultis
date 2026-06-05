@@ -225,60 +225,68 @@
   </div>
   <div class="col-lg-7">
     <div class="card app-card border-0 h-100">
-      <div class="card-header">Historique des sauvegardes</div>
-      <div class="card-body p-0 app-table-wrap">
-        {% if jobs %}
-          <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
-              <thead>
-                <tr>
-                  <th class="ps-4">Date</th>
-                  <th>Statut</th>
-                  <th>Host</th>
-                  <th>Origine</th>
-                  <th>Utilisateur</th>
-                  <th class="pe-4">Message</th>
+      <div class="card-header d-flex align-items-center justify-content-between gap-2">
+        <span>Historique des sauvegardes</span>
+        <span class="small text-muted js-backup-history-hint d-none" aria-live="polite"></span>
+      </div>
+      <div
+        class="card-body p-0 app-table-wrap js-backup-history"
+        data-jobs-url="{% url 'equipment_jobs_json' equipment.pk %}"
+        data-poll-active="{% if schedule and schedule.is_enabled %}1{% else %}0{% endif %}"
+        data-has-running="{% if has_running_job %}1{% else %}0{% endif %}"
+        data-latest-id="{% if jobs %}{{ jobs.0.pk }}{% endif %}"
+      >
+        <div class="app-empty-state js-backup-history-empty{% if jobs %} d-none{% endif %}">
+          Aucune sauvegarde enregistrée pour cet équipement.
+        </div>
+        <div class="table-responsive{% if not jobs %} d-none{% endif %} js-backup-history-table">
+          <table class="table table-hover mb-0 align-middle">
+            <thead>
+              <tr>
+                <th class="ps-4">Date</th>
+                <th>Statut</th>
+                <th>Host</th>
+                <th>Origine</th>
+                <th>Utilisateur</th>
+                <th class="pe-4">Message</th>
+              </tr>
+            </thead>
+            <tbody class="js-backup-history-body">
+              {% for job in jobs %}
+                <tr data-job-id="{{ job.pk }}">
+                  <td class="text-nowrap small ps-4">{{ job.started_at|localtime|date:"d/m/Y H:i" }}</td>
+                  <td>
+                    {% if job.status == 'success' %}
+                      <span class="badge rounded-pill text-bg-success">Réussi</span>
+                    {% elif job.status == 'failed' %}
+                      <span class="badge rounded-pill text-bg-danger">Échoué</span>
+                    {% elif job.status == 'running' %}
+                      <span class="badge rounded-pill text-bg-warning text-dark">En cours</span>
+                    {% else %}
+                      <span class="badge rounded-pill text-bg-secondary">En attente</span>
+                    {% endif %}
+                  </td>
+                  <td class="small text-nowrap">
+                    {% if job.equipment_host %}
+                      <code class="small">{{ job.equipment_host.address }}</code>
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                  <td class="small text-nowrap">
+                    {% if job.trigger == 'scheduled' %}
+                      <span class="badge rounded-pill text-bg-info">Planifié</span>
+                    {% else %}
+                      <span class="badge rounded-pill text-bg-light text-dark border">Manuel</span>
+                    {% endif %}
+                  </td>
+                  <td class="small">{% if job.triggered_by %}{{ job.triggered_by.username }}{% else %}—{% endif %}</td>
+                  <td class="small text-break pe-4">{{ job.message|default:"—" }}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {% for job in jobs %}
-                  <tr>
-                    <td class="text-nowrap small ps-4">{{ job.started_at|localtime|date:"d/m/Y H:i" }}</td>
-                    <td>
-                      {% if job.status == 'success' %}
-                        <span class="badge rounded-pill text-bg-success">Réussi</span>
-                      {% elif job.status == 'failed' %}
-                        <span class="badge rounded-pill text-bg-danger">Échoué</span>
-                      {% elif job.status == 'running' %}
-                        <span class="badge rounded-pill text-bg-warning text-dark">En cours</span>
-                      {% else %}
-                        <span class="badge rounded-pill text-bg-secondary">En attente</span>
-                      {% endif %}
-                    </td>
-                    <td class="small text-nowrap">
-                      {% if job.equipment_host %}
-                        <code class="small">{{ job.equipment_host.address }}</code>
-                      {% else %}
-                        —
-                      {% endif %}
-                    </td>
-                    <td class="small text-nowrap">
-                      {% if job.trigger == 'scheduled' %}
-                        <span class="badge rounded-pill text-bg-info">Planifié</span>
-                      {% else %}
-                        <span class="badge rounded-pill text-bg-light text-dark border">Manuel</span>
-                      {% endif %}
-                    </td>
-                    <td class="small">{% if job.triggered_by %}{{ job.triggered_by.username }}{% else %}—{% endif %}</td>
-                    <td class="small text-break pe-4">{{ job.message|default:"—" }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% else %}
-          <div class="app-empty-state">Aucune sauvegarde enregistrée pour cet équipement.</div>
-        {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -299,7 +307,10 @@
     <p class="small text-muted mb-3 js-backup-progress-equipment"></p>
     <p class="small mb-3 js-backup-progress-status" aria-live="polite">Initialisation…</p>
     <div class="progress backup-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-      <div class="progress-bar progress-bar-striped progress-bar-animated js-backup-progress-fill"></div>
+      <div
+        class="progress-bar progress-bar-striped progress-bar-animated js-backup-progress-fill"
+        style="width: 8%;"
+      ></div>
     </div>
     <p class="small text-muted mt-3 mb-0">
       Ne fermez pas cette page. Les sauvegardes volumineuses (Arbor AED) peuvent prendre plus d’une heure.

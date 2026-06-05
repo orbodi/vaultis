@@ -2,10 +2,12 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .forms import BackupScheduleForm
+from .job_history import jobs_history_payload
 from .models import BackupJob, BackupSchedule, Equipment, EquipmentHost
 from .nethsm_credentials import default_nethsm_credentials_configured
 from .scheduler import compute_next_run, schedule_summary
@@ -35,10 +37,13 @@ def equipment_detail(request, pk: int):
         ),
         pk=pk,
     )
-    jobs = equipment.backup_jobs.select_related(
-        "triggered_by",
-        "equipment_host",
-    )[:5]
+    jobs = list(
+        equipment.backup_jobs.select_related(
+            "triggered_by",
+            "equipment_host",
+        )[:5]
+    )
+    has_running_job = any(j.status == BackupJob.Status.RUNNING for j in jobs)
     slug = equipment.equipment_type.slug
     is_nitrokey = slug == "nitrokey"
     is_arbor_aed = slug == "ddos"
@@ -62,6 +67,7 @@ def equipment_detail(request, pk: int):
             "schedule_form": schedule_form,
             "schedule_summary": schedule_summary_text,
             "django_timezone": settings.TIME_ZONE,
+            "has_running_job": has_running_job,
         },
     )
 
@@ -154,3 +160,10 @@ def equipment_schedule(request, pk: int):
     else:
         messages.success(request, "Planification automatique désactivée.")
     return redirect("equipment_detail", pk=equipment.pk)
+
+
+@login_required
+@require_GET
+def equipment_jobs_json(request, pk: int):
+    equipment = get_object_or_404(Equipment, pk=pk)
+    return JsonResponse(jobs_history_payload(equipment))

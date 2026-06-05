@@ -500,4 +500,29 @@ class BackupScheduleTests(TestCase):
             run_time=datetime.time(2, 15),
         )
         self.assertIn("Lundi", schedule_summary(schedule))
-        self.assertIn("02:15", schedule_summary(schedule))
+            self.assertIn("02:15", schedule_summary(schedule))
+
+
+class JobHistoryApiTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="op", password="pass")
+        eq_type = EquipmentType.objects.create(slug="hist", name="Hist", adapter_key="x")
+        self.equipment = Equipment.objects.create(name="Eq", equipment_type=eq_type)
+        self.job = BackupJob.objects.create(
+            equipment=self.equipment,
+            trigger=BackupJob.Trigger.SCHEDULED,
+            status=BackupJob.Status.SUCCESS,
+            message="OK planifié",
+        )
+
+    def test_jobs_json_returns_last_five(self):
+        from django.urls import reverse
+
+        self.client.login(username="op", password="pass")
+        response = self.client.get(reverse("equipment_jobs_json", args=[self.equipment.pk]))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload["jobs"]), 1)
+        self.assertEqual(payload["jobs"][0]["trigger"], "scheduled")
+        self.assertEqual(payload["jobs"][0]["message"], "OK planifié")

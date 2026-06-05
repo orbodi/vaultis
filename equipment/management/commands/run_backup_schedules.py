@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand
+from django.db import ProgrammingError
 from django.utils import timezone
 
 from equipment.scheduler import process_due_schedules
@@ -13,7 +14,16 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         now = timezone.now()
-        jobs = process_due_schedules(now=now)
+        try:
+            jobs = process_due_schedules(now=now)
+        except ProgrammingError as exc:
+            if "equipment_backupschedule" in str(exc):
+                self.stderr.write(
+                    "Table equipment_backupschedule absente — exécuter : "
+                    "python manage.py migrate"
+                )
+                return
+            raise
         if not jobs:
             self.stdout.write("Aucune planification à exécuter.")
             return

@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Sauvegardes équipements{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260606">
   {% block extra_css %}{% endblock %}
 </head>
 <body class="app-body d-flex flex-column min-vh-100 {% block body_extra_class %}{% endblock %}">
@@ -78,7 +78,7 @@
   </footer>
 
   <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
-  <script src="{% static 'js/app.js' %}?v=20260605"></script>
+  <script src="{% static 'js/app.js' %}?v=20260607"></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>
