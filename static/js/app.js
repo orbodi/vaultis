@@ -1,4 +1,4 @@
-/** vaultis app.js v20260607 */
+/** vaultis app.js v20260608 */
 /**
  * Sauvegarde : validation, modal de confirmation, overlay de progression.
  */
@@ -112,33 +112,19 @@ document.addEventListener("DOMContentLoaded", function () {
     return true;
   }
 
-  function bindBackupProgressOnSubmit(form) {
-    if (!form || !progressOverlay) {
+  function submitBackupForm(form) {
+    if (!form) {
       return;
     }
-
     var equipmentTitle = document.querySelector(".app-page-title");
     var isArborForm = Boolean(form.getAttribute("data-arbor-dcs"));
-    var allowNativeSubmit = false;
-
-    form.addEventListener("submit", function (event) {
-      if (allowNativeSubmit) {
-        return;
-      }
-      event.preventDefault();
-      showBackupProgress({
-        equipmentName: equipmentTitle ? equipmentTitle.textContent.trim() : "",
-        isArbor: isArborForm,
-      });
-      allowNativeSubmit = true;
-      window.setTimeout(function () {
-        if (typeof form.requestSubmit === "function") {
-          form.requestSubmit();
-        } else {
-          HTMLFormElement.prototype.submit.call(form);
-        }
-      }, 200);
+    showBackupProgress({
+      equipmentName: equipmentTitle ? equipmentTitle.textContent.trim() : "",
+      isArbor: isArborForm,
     });
+    window.setTimeout(function () {
+      HTMLFormElement.prototype.submit.call(form);
+    }, 200);
   }
 
   document.querySelectorAll(".js-schedule-form").forEach(function (form) {
@@ -165,8 +151,6 @@ document.addEventListener("DOMContentLoaded", function () {
   var modalEl = document.getElementById("backupConfirmModal");
 
   document.querySelectorAll(".js-backup-form").forEach(function (form) {
-    bindBackupProgressOnSubmit(form);
-
     var openBtn = form.querySelector(".js-backup-open");
     if (!openBtn) {
       return;
@@ -175,11 +159,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!modalEl) {
       openBtn.addEventListener("click", function (event) {
         event.preventDefault();
-        if (typeof form.requestSubmit === "function") {
-          form.requestSubmit();
-        } else {
-          form.submit();
-        }
+        submitBackupForm(form);
       });
       return;
     }
@@ -446,11 +426,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (modal) {
           modal.hide();
         }
-        if (typeof form.requestSubmit === "function") {
-          form.requestSubmit();
-        } else {
-          form.submit();
-        }
+        submitBackupForm(form);
       });
     }
   });
