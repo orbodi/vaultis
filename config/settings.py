@@ -246,11 +246,12 @@ NITROKEY_NETHSM_VERIFY_TLS = os.environ.get(
 # Arbor AED (adaptateur equipment.adapters.arbor_aed)
 _arbor_source = os.environ.get("ARBOR_AED_SOURCE_DIR", "").strip()
 ARBOR_AED_SOURCE_DIR = Path(_arbor_source) if _arbor_source else None
+_arbor_dc01_dir = os.environ.get("ARBOR_AED_SOURCE_DIR_DC01", "").strip()
+_arbor_dc02_dir = os.environ.get("ARBOR_AED_SOURCE_DIR_DC02", "").strip()
 ARBOR_AED_SOURCE_DIRS = {
-    "DC01": Path(p) if (p := os.environ.get("ARBOR_AED_SOURCE_DIR_DC01", "").strip()) else None,
-    "DC02": Path(p) if (p := os.environ.get("ARBOR_AED_SOURCE_DIR_DC02", "").strip()) else None,
+    "DC01": Path(_arbor_dc01_dir) if _arbor_dc01_dir else Path("/app/arbor/incoming/dc01"),
+    "DC02": Path(_arbor_dc02_dir) if _arbor_dc02_dir else Path("/app/arbor/incoming/dc02"),
 }
-ARBOR_AED_SOURCE_DIRS = {k: v for k, v in ARBOR_AED_SOURCE_DIRS.items() if v is not None}
 ARBOR_AED_ACTIVE_DCS = os.environ.get("ARBOR_AED_ACTIVE_DCS", "").strip()
 _arbor_staging = os.environ.get("ARBOR_AED_STAGING_DIR", "").strip()
 ARBOR_AED_STAGING_DIR = Path(_arbor_staging) if _arbor_staging else BASE_DIR / "backups" / "arbor_aed" / "staging"

@@ -103,6 +103,41 @@ def arbor_source_dirs() -> dict[str, Path]:
     return mapping
 
 
+def assert_arbor_source_readable(source_dir: Path) -> None:
+    """Vérifie que tous les fichiers Arbor reconnus sont lisibles par le conteneur."""
+    from equipment.arbor_aed_files import classify_arbor_filename
+
+    unreadable: list[str] = []
+    for entry in source_dir.iterdir():
+        if not entry.is_file():
+            continue
+        if classify_arbor_filename(entry.name) is None:
+            continue
+        if os.access(entry, os.R_OK):
+            continue
+        unreadable.append(entry.name)
+
+    if not unreadable:
+        return
+
+    sample = ", ".join(unreadable[:3])
+    extra = f" (+{len(unreadable) - 3} autres)" if len(unreadable) > 3 else ""
+    raise BackupAdapterError(
+        f"{len(unreadable)} fichier(s) Arbor AED non lisible(s) dans {source_dir} "
+        f"(ex. {sample}{extra}). "
+        "Cause fréquente : fichiers en 600 appartenant à uid 1003, conteneur Vaultis en uid 1000. "
+        "Sur l'hôte : find /home/mdoman/net-backups -type f -exec chmod 644 {} \\; "
+        "et find /home/mdoman/net-backups -type d -exec chmod 755 {} \\; "
+        "(adapter le chemin si besoin). Puis relancer la sauvegarde."
+    )
+
+
+def _configured_path_looks_host_only(path: Path) -> bool:
+    """Chemin typique de l'hôte Linux, pas du montage Docker Vaultis."""
+    s = path.as_posix()
+    return s.startswith("/home/") and not s.startswith("/app/")
+
+
 def arbor_source_dir_for_dc(dc: str) -> Path:
     dirs = arbor_source_dirs()
     if dc not in dirs:
@@ -110,20 +145,26 @@ def arbor_source_dir_for_dc(dc: str) -> Path:
             f"Dossier source non configuré pour {dc} (ARBOR_AED_SOURCE_DIR_{dc})."
         )
     configured = dirs[dc]
-    if configured.is_dir():
-        return configured
-
     mounted = ARBOR_CONTAINER_SOURCE_DIRS.get(dc)
+
     if mounted is not None and mounted.is_dir():
-        return mounted
+        if configured == mounted:
+            assert_arbor_source_readable(mounted)
+            return mounted
+        if not configured.is_dir() or _configured_path_looks_host_only(configured):
+            assert_arbor_source_readable(mounted)
+            return mounted
+
+    if configured.is_dir():
+        assert_arbor_source_readable(configured)
+        return configured
 
     container_hint = mounted or configured
     raise BackupAdapterError(
         f"Dossier source introuvable pour {dc} dans le conteneur : {configured}. "
-        f"Sur l'hôte, définir ARBOR_AED_SOURCE_HOST_{dc} (ex. /home/mdoman/net-backups) ; "
-        f"dans le conteneur, utiliser ARBOR_AED_SOURCE_DIR_{dc}={container_hint} "
-        f"(monté par docker-compose). Puis recréer les conteneurs : "
-        f"docker compose up -d --force-recreate web. "
+        f"Définir ARBOR_AED_SOURCE_DIR_{dc}={container_hint} dans .env "
+        f"(et ARBOR_AED_SOURCE_HOST_{dc}=/chemin/hôte pour le bind mount). "
+        f"Puis : docker compose up -d --force-recreate web. "
         f"Vérifier : docker compose exec web ls -la {container_hint}"
     )
 

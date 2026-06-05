@@ -348,6 +348,30 @@ class ArborAedDcConfigTests(TestCase):
             finally:
                 os.environ.pop("ARBOR_AED_SOURCE_DIR_DC01", None)
 
+    def test_source_dir_prefers_container_when_env_is_host_path(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        import os
+
+        from equipment import arbor_aed_config
+
+        with TemporaryDirectory() as mount:
+            container = Path(mount)
+            (container / "arbor-backup-full.20260603T220003Z.manifest").write_bytes(b"x")
+            with patch.object(
+                arbor_aed_config,
+                "ARBOR_CONTAINER_SOURCE_DIRS",
+                {"DC01": container},
+            ):
+                os.environ["ARBOR_AED_SOURCE_DIR_DC01"] = "/home/mdoman/net-backups"
+                try:
+                    resolved = arbor_source_dir_for_dc("DC01")
+                finally:
+                    os.environ.pop("ARBOR_AED_SOURCE_DIR_DC01", None)
+            self.assertEqual(resolved, container)
+
     def test_source_dir_falls_back_to_container_mount(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory

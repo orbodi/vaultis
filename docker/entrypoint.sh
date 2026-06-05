@@ -36,6 +36,7 @@ except Exception:
 fi
 
 python manage.py migrate --noinput
+python manage.py recover_stale_backup_jobs --minutes "${BACKUP_JOB_STALE_MINUTES:-30}"
 python manage.py collectstatic --noinput --clear
 
 static_count=$(find /app/staticfiles -type f 2>/dev/null | wc -l)
@@ -55,4 +56,4 @@ fi
 exec gunicorn config.wsgi:application \
   --bind "0.0.0.0:${PORT}" \
   --workers "${GUNICORN_WORKERS:-2}" \
-  --timeout 120
+  --timeout "${GUNICORN_TIMEOUT:-7200}"

@@ -18,6 +18,7 @@ from equipment.arbor_aed_config import (
     arbor_source_dir_for_dc,
     arbor_staging_for_dc,
     arbor_staging_root,
+    assert_arbor_source_readable,
     scp_config_from_settings,
 )
 from equipment.arbor_aed_files import (
@@ -58,8 +59,18 @@ class Adapter:
                 continue
 
             any_processed = True
+            assert_arbor_source_readable(source)
             staging_dc = arbor_staging_for_dc(job.pk, dc)
-            organize_into_staging(files, staging_dc, move=arbor_move_source_files())
+            try:
+                organize_into_staging(files, staging_dc, move=arbor_move_source_files())
+            except PermissionError as exc:
+                path = getattr(exc, "filename", None) or str(exc)
+                raise BackupAdapterError(
+                    f"Permission refusée en lecture : {path}. "
+                    "Les backups Arbor sur l'hôte sont souvent en 600 (propriétaire uid 1003) "
+                    "alors que Vaultis tourne sous uid 1000. "
+                    "Sur l'hôte : find /home/mdoman/net-backups -type f -exec chmod 644 {} \\;"
+                ) from exc
             dates = distinct_dates(files)
             remote_parent = arbor_remote_parent_for_dc(dc)
             dc_uploaded = 0
@@ -73,30 +84,35 @@ class Adapter:
             )
 
             for folder_date in dates:
-                local_date_dir = staging_dc / folder_date
-                remote_date_dir = f"{remote_parent}/{folder_date}"
-                try:
-                    count = upload_tree(
-                        local_date_dir,
-                        remote_date_dir,
-                        host=scp["host"],
-                        port=scp["port"],
-                        username=scp["username"],
-                        password=scp["password"],
-                    )
-                    dc_uploaded += count
-                    total_uploaded += count
-                    logger.info(
-                        "Arbor AED SCP ok dc=%s date=%s files=%s remote=%s",
-                        dc,
-                        folder_date,
-                        count,
-                        remote_date_dir,
-                    )
-                except Exception as exc:
-                    raise BackupAdapterError(
-                        f"Transfert SCP échoué pour {dc} / {folder_date}. Voir les logs."
-                    ) from exc
+                for backup_type in ("full", "inc"):
+                    local_type_dir = staging_dc / folder_date / backup_type
+                    if not local_type_dir.is_dir():
+                        continue
+                    remote_type_dir = f"{remote_parent}/{folder_date}/{backup_type}"
+                    try:
+                        count = upload_tree(
+                            local_type_dir,
+                            remote_type_dir,
+                            host=scp["host"],
+                            port=scp["port"],
+                            username=scp["username"],
+                            password=scp["password"],
+                        )
+                        dc_uploaded += count
+                        total_uploaded += count
+                        logger.info(
+                            "Arbor AED SCP ok dc=%s date=%s type=%s files=%s remote=%s",
+                            dc,
+                            folder_date,
+                            backup_type,
+                            count,
+                            remote_type_dir,
+                        )
+                    except Exception as exc:
+                        raise BackupAdapterError(
+                            f"Transfert SCP échoué pour {dc} / {folder_date} / {backup_type}. "
+                            "Voir les logs (timeout Gunicorn si upload très long)."
+                        ) from exc
 
             full_count = sum(1 for f in files if f.backup_type == "full")
             inc_count = sum(1 for f in files if f.backup_type == "inc")

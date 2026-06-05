@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import posixpath
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def upload_tree(local_root: Path, remote_parent: str, *, host: str, port: int, username: str, password: str) -> int:
@@ -19,6 +22,7 @@ def upload_tree(local_root: Path, remote_parent: str, *, host: str, port: int, u
     remote_base = remote_parent.replace("\\", "/").rstrip("/")
     transport = paramiko.Transport((host, int(port)))
     transport.connect(username=username, password=password)
+    transport.set_keepalive(30)
     count = 0
     try:
         sftp = paramiko.SFTPClient.from_transport(transport)
@@ -30,6 +34,8 @@ def upload_tree(local_root: Path, remote_parent: str, *, host: str, port: int, u
             remote_dir = posixpath.dirname(remote_path)
             if remote_dir:
                 _ensure_remote_dir(sftp, remote_dir)
+            size_mb = local_file.stat().st_size / (1024 * 1024)
+            logger.info("SCP upload %s (%.1f Mo) → %s", local_file.name, size_mb, remote_path)
             with local_file.open("rb") as src:
                 with sftp.file(remote_path, "wb") as dst:
                     while True:
@@ -38,6 +44,7 @@ def upload_tree(local_root: Path, remote_parent: str, *, host: str, port: int, u
                             break
                         dst.write(chunk)
             count += 1
+        logger.info("SCP terminé : %s fichier(s) vers %s", count, remote_base)
     finally:
         transport.close()
     return count

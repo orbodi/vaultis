@@ -219,7 +219,9 @@ ARBOR_AED_SOURCE_HOST_DC01=/home/mdoman/net-backups
 ARBOR_AED_SOURCE_DIR_DC01=/app/arbor/incoming/dc01
 ```
 
-`docker-compose.yml` monte `ARBOR_AED_SOURCE_HOST_DC01` (ou, à défaut, l’ancienne variable `ARBOR_AED_SOURCE_DIR_DC01`) vers `/app/arbor/incoming/dc01`. Après modification du `.env` : `docker compose up -d --force-recreate web`, puis `docker compose exec web ls -la /app/arbor/incoming/dc01`.
+`docker-compose.yml` monte `ARBOR_AED_SOURCE_HOST_DC01` (ou, à défaut, l’ancienne variable `ARBOR_AED_SOURCE_DIR_DC01`) vers `/app/arbor/incoming/dc01`. Dans `.env`, **`ARBOR_AED_SOURCE_DIR_DC01` doit pointer vers le chemin conteneur** (`/app/arbor/incoming/dc01`), pas `/home/...` sur l’hôte. Après modification : `docker compose build web && docker compose up -d --force-recreate web`, puis `docker compose exec web ls -la /app/arbor/incoming/dc01`.
+
+**Droits** : si les fichiers Arbor sont en `600` et appartiennent à un autre uid (ex. 1003) que `appuser` (uid 1000), la copie échouera. Sur l’hôte : `chmod -R g+rX` + groupe partagé, ou `user: "1003:1003"` sur le service `web` dans docker-compose.
 
 SCP : réutilise `NITROKEY_WINDOWS_SCP_*` si `ARBOR_AED_SCP_*` est vide.
 
