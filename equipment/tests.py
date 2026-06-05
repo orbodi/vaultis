@@ -11,7 +11,12 @@ from equipment.arbor_aed_config import (
     arbor_source_dir_for_dc,
     normalize_dc_key,
 )
-from equipment.arbor_aed_files import classify_arbor_filename, organize_into_staging, scan_arbor_source
+from equipment.arbor_aed_files import (
+    archive_processed_files,
+    classify_arbor_filename,
+    organize_into_staging,
+    scan_arbor_source,
+)
 from equipment.models import BackupJob, Equipment, EquipmentHost, EquipmentType
 from equipment.nethsm_credentials import default_nethsm_credentials_configured
 from equipment.services import run_backup_job
@@ -435,7 +440,68 @@ class ArborAedAdapterTests(TestCase):
         self.assertIn("Arbor AED", message)
         self.assertIn("DC01", message)
         self.assertIn("2026-06-03", message)
+        self.assertIn("archivé(s)", message)
+        self.assertFalse(
+            (src / "arbor-backup-full.20260603T220003Z.manifest").exists()
+        )
+        self.assertTrue(
+            (
+                src
+                / "archive"
+                / "2026-06-03"
+                / "full"
+                / "arbor-backup-full.20260603T220003Z.manifest"
+            ).is_file()
+        )
         mock_upload.assert_called_once()
+
+
+class ArborArchiveTests(TestCase):
+    def test_archive_after_copy_mode(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as src_dir, TemporaryDirectory() as staging_dir:
+            src = Path(src_dir)
+            staging = Path(staging_dir)
+            manifest = src / "arbor-backup-full.20260603T220003Z.manifest"
+            manifest.write_bytes(b"data")
+            files, _ = scan_arbor_source(src)
+            organize_into_staging(files, staging, move=False)
+
+            count = archive_processed_files(files, src, staging, used_move=False)
+
+            self.assertEqual(count, 1)
+            self.assertFalse(manifest.exists())
+            archived = src / "archive" / "2026-06-03" / "full" / manifest.name
+            self.assertTrue(archived.is_file())
+            self.assertEqual(archived.read_bytes(), b"data")
+
+    def test_archive_after_move_mode(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as src_dir, TemporaryDirectory() as staging_dir:
+            src = Path(src_dir)
+            staging = Path(staging_dir)
+            manifest = src / "arbor-backup-inc.20260603T220003Z.to.20260603T230003Z.manifest"
+            manifest.write_bytes(b"inc")
+            files, _ = scan_arbor_source(src)
+            organize_into_staging(files, staging, move=True)
+
+            count = archive_processed_files(files, src, staging, used_move=True)
+
+            self.assertEqual(count, 1)
+            self.assertFalse(manifest.exists())
+            self.assertTrue(
+                (
+                    src
+                    / "archive"
+                    / "2026-06-03"
+                    / "inc"
+                    / manifest.name
+                ).is_file()
+            )
 
 
 class BackupScheduleTests(TestCase):

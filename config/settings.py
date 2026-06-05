@@ -261,6 +261,11 @@ ARBOR_AED_REMOTE_PARENT_DIRS = {
     "DC02": os.environ.get("ARBOR_AED_REMOTE_PARENT_DIR_DC02", "").strip(),
 }
 ARBOR_AED_MOVE_SOURCE = os.environ.get("ARBOR_AED_MOVE_SOURCE", "").lower() in ("1", "true", "yes")
+ARBOR_AED_ARCHIVE_AFTER_UPLOAD = os.environ.get(
+    "ARBOR_AED_ARCHIVE_AFTER_UPLOAD", "true"
+).lower() in ("1", "true", "yes")
+_arbor_archive_subdir = os.environ.get("ARBOR_AED_ARCHIVE_SUBDIR", "archive").strip()
+ARBOR_AED_ARCHIVE_SUBDIR = _arbor_archive_subdir or "archive"
 ARBOR_AED_SCP_HOST = os.environ.get("ARBOR_AED_SCP_HOST", "").strip()
 ARBOR_AED_SCP_PORT = int(os.environ.get("ARBOR_AED_SCP_PORT", "0") or "0") or None
 ARBOR_AED_SCP_USERNAME = os.environ.get("ARBOR_AED_SCP_USERNAME", "").strip()

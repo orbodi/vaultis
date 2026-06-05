@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING
 
 from equipment.arbor_aed_config import (
     arbor_active_dcs,
+    arbor_archive_after_upload,
+    arbor_archive_root_for_source,
     arbor_move_source_files,
     arbor_remote_parent_for_dc,
     arbor_source_dir_for_dc,
@@ -22,6 +24,7 @@ from equipment.arbor_aed_config import (
     scp_config_from_settings,
 )
 from equipment.arbor_aed_files import (
+    archive_processed_files,
     distinct_dates,
     organize_into_staging,
     scan_arbor_source,
@@ -61,8 +64,9 @@ class Adapter:
             any_processed = True
             assert_arbor_source_readable(source)
             staging_dc = arbor_staging_for_dc(job.pk, dc)
+            move_source = arbor_move_source_files()
             try:
-                organize_into_staging(files, staging_dc, move=arbor_move_source_files())
+                organize_into_staging(files, staging_dc, move=move_source)
             except PermissionError as exc:
                 path = getattr(exc, "filename", None) or str(exc)
                 raise BackupAdapterError(
@@ -114,6 +118,27 @@ class Adapter:
                             "Voir les logs (timeout Gunicorn si upload très long)."
                         ) from exc
 
+            archived = 0
+            if arbor_archive_after_upload():
+                try:
+                    archived = archive_processed_files(
+                        files,
+                        source,
+                        staging_dc,
+                        used_move=move_source,
+                        archive_root=arbor_archive_root_for_source(source),
+                    )
+                    logger.info(
+                        "Arbor AED %s: %s fichier(s) archivé(s) dans %s",
+                        dc,
+                        archived,
+                        arbor_archive_root_for_source(source),
+                    )
+                except OSError as exc:
+                    raise BackupAdapterError(
+                        f"Archivage local échoué pour {dc} : {exc}"
+                    ) from exc
+
             full_count = sum(1 for f in files if f.backup_type == "full")
             inc_count = sum(1 for f in files if f.backup_type == "inc")
             total_files += len(files)
@@ -121,6 +146,8 @@ class Adapter:
                 f"{dc}: {len(files)} fichier(s) (full {full_count}, inc {inc_count}), "
                 f"dates {', '.join(dates)}, {dc_uploaded} envoyé(s)"
             )
+            if archived:
+                part += f", {archived} archivé(s) localement"
             if skipped:
                 part += f", {len(skipped)} ignoré(s) en source"
             dc_summaries.append(part)

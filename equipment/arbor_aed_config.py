@@ -198,6 +198,15 @@ def arbor_move_source_files() -> bool:
     return getattr(settings, "ARBOR_AED_MOVE_SOURCE", False)
 
 
+def arbor_archive_after_upload() -> bool:
+    return getattr(settings, "ARBOR_AED_ARCHIVE_AFTER_UPLOAD", True)
+
+
+def arbor_archive_root_for_source(source_dir: Path) -> Path:
+    subdir = getattr(settings, "ARBOR_AED_ARCHIVE_SUBDIR", "archive") or "archive"
+    return source_dir / subdir
+
+
 def scp_config_from_settings() -> dict:
     """SCP : variables ARBOR_AED_SCP_* ou repli sur NITROKEY_WINDOWS_SCP_*."""
     host = (

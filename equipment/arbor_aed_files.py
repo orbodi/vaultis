@@ -93,3 +93,36 @@ def organize_into_staging(
 
 def distinct_dates(files: list[ArborBackupFile]) -> list[str]:
     return sorted({f.folder_date for f in files})
+
+
+def archive_processed_files(
+    files: list[ArborBackupFile],
+    source_dir: Path,
+    staging_dc: Path,
+    *,
+    used_move: bool,
+    archive_root: Path | None = None,
+) -> int:
+    """
+    Déplace les fichiers traités vers source_dir/archive/YYYY-MM-DD/{full|inc}/.
+    Retourne le nombre de fichiers archivés.
+    """
+    root = archive_root if archive_root is not None else source_dir / "archive"
+    archived = 0
+
+    for item in files:
+        src = item.path
+        if used_move:
+            src = staging_dc / item.folder_date / item.backup_type / item.path.name
+        if not src.is_file():
+            continue
+
+        dest_dir = root / item.folder_date / item.backup_type
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / item.path.name
+        if dest.exists():
+            dest.unlink()
+        shutil.move(str(src), dest)
+        archived += 1
+
+    return archived

@@ -225,7 +225,7 @@ ARBOR_AED_SOURCE_DIR_DC01=/app/arbor/incoming/dc01
 
 SCP : réutilise `NITROKEY_WINDOWS_SCP_*` si `ARBOR_AED_SCP_*` est vide.
 
-Optionnel : `ARBOR_AED_MOVE_SOURCE=true` pour **déplacer** les fichiers source (sinon **copie**). Fichiers non reconnus : ignorés (compteur dans le message du job).
+Optionnel : `ARBOR_AED_MOVE_SOURCE=true` pour **déplacer** les fichiers source (sinon **copie**). Après SCP réussi, les fichiers traités sont **archivés** dans `{source}/archive/YYYY-MM-DD/full|inc/` (désactiver : `ARBOR_AED_ARCHIVE_AFTER_UPLOAD=false`). Fichiers non reconnus : ignorés (compteur dans le message du job).
 
 Lancer depuis la fiche équipement type **Arbor AED** (bouton « Lancer une sauvegarde »).
 
@@ -315,6 +315,8 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 | `ARBOR_AED_SOURCE_DIR_DC01` / `_DC02` | Dossiers incoming lus dans le conteneur (ex. `/app/arbor/incoming/dc01`) |
 | `ARBOR_AED_REMOTE_PARENT_DIR_DC01` / `_DC02` | Dossier mère distant SCP par DC (obligatoire si DC actif) |
 | `ARBOR_AED_MOVE_SOURCE` | `true` pour déplacer au lieu de copier depuis la source |
+| `ARBOR_AED_ARCHIVE_AFTER_UPLOAD` | `false` pour ne pas archiver dans `{source}/archive/` après SCP |
+| `ARBOR_AED_ARCHIVE_SUBDIR` | Nom du sous-dossier d’archivage (défaut : `archive`) |
 
 **Accès par IP** (ex. `http://172.16.41.225:8010`) : ajouter l’IP dans `DJANGO_ALLOWED_HOSTS` et l’URL complète (avec port) dans `DJANGO_CSRF_TRUSTED_ORIGINS`. Garder `DJANGO_USE_HTTPS=false` sauf reverse proxy HTTPS.
 
