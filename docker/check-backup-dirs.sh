@@ -19,3 +19,5 @@ _check_writable_dir() {
 
 _check_writable_dir "${NITROKEY_BACKUP_ROOT:-/app/data/backups/nitrokey}" "Nitrokey"
 _check_writable_dir "${F5_BACKUP_ROOT:-/app/data/backups/f5}" "F5"
+_check_writable_dir "${F5_DN1_BACKUP_ROOT:-/app/data/backups/f5-dn1}" "F5-DN1"
+_check_writable_dir "${F5_DN2_BACKUP_ROOT:-/app/data/backups/f5-dn2}" "F5-DN2"

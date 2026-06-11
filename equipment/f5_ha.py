@@ -95,9 +95,11 @@ def resolve_active_mgmt_ip(
     """
     Interroge /mgmt/tm/cm/device et retourne managementIp du membre ``active``.
   """
+    logger.info("F5 HA discovery start peers=%s verify_tls=%s", peers, verify_tls)
     last_error: Exception | None = None
     for peer in peers:
         try:
+            logger.info("F5 HA discovery query peer=%s", peer)
             items = _fetch_cm_devices(peer, user, password, verify_tls=verify_tls)
             for item in items:
                 if not isinstance(item, dict):

@@ -307,6 +307,18 @@ F5_SCP_USERNAME = F5_WINDOWS_SCP_USERNAME
 F5_SCP_PASSWORD = F5_WINDOWS_SCP_PASSWORD
 F5_SCP_REMOTE_PARENT_DIR = F5_WINDOWS_SCP_REMOTE_DIR
 
+# F5-DN1 / F5-DN2 (standalone — repli sur F5_* si non défini)
+_f5_dn1_backup_root = os.environ.get("F5_DN1_BACKUP_ROOT", "").strip()
+F5_DN1_BACKUP_ROOT = (
+    Path(_f5_dn1_backup_root) if _f5_dn1_backup_root else BASE_DIR / "backups" / "f5-dn1"
+)
+F5_DN1_WINDOWS_SCP_REMOTE_DIR = os.environ.get("F5_DN1_WINDOWS_SCP_REMOTE_DIR", "").strip()
+_f5_dn2_backup_root = os.environ.get("F5_DN2_BACKUP_ROOT", "").strip()
+F5_DN2_BACKUP_ROOT = (
+    Path(_f5_dn2_backup_root) if _f5_dn2_backup_root else BASE_DIR / "backups" / "f5-dn2"
+)
+F5_DN2_WINDOWS_SCP_REMOTE_DIR = os.environ.get("F5_DN2_WINDOWS_SCP_REMOTE_DIR", "").strip()
+
 # Arbor AED (adaptateur equipment.adapters.arbor_aed)
 _arbor_source = os.environ.get("ARBOR_AED_SOURCE_DIR", "").strip()
 ARBOR_AED_SOURCE_DIR = Path(_arbor_source) if _arbor_source else None

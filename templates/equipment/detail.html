@@ -34,7 +34,7 @@
             — répertoires source et distant configurés dans le <code>.env</code>.
           </div>
         {% endif %}
-        {% if is_f5 %}
+        {% if is_f5_ha %}
           <div class="alert alert-secondary py-2 px-3 small mb-4" role="status">
             Cluster HA : le membre <strong>actif</strong> est détecté automatiquement via l'API iControl
             (<code>/mgmt/tm/cm/device</code>) avant chaque sauvegarde SSH.
@@ -44,7 +44,15 @@
             {% else %}
               ({{ host_list|length }} nœud{{ host_list|length|pluralize }})
             {% endif %}
-            — identifiants <code>F5_SSH_*</code> (ou <code>F5_API_*</code>, même couple) dans le <code>.env</code>.
+            — identifiants <code>F5_SSH_*</code> dans le <code>.env</code>.
+          </div>
+        {% elif is_f5_standalone %}
+          <div class="alert alert-secondary py-2 px-3 small mb-4" role="status">
+            F5 standalone (sans HA) : sauvegarde SSH directe sur le host de management configuré
+            {% if host_list|length == 0 %}
+              <span class="text-danger">(aucun host configuré)</span>
+            {% endif %}
+            — identifiants <code>F5_SSH_*</code> dans le <code>.env</code>.
           </div>
         {% endif %}
         <hr class="my-4 opacity-25">
@@ -55,7 +63,8 @@
           id="backup-form"
           novalidate
           {% if is_arbor_aed %}data-arbor-dcs="{{ arbor_active_dcs_display }}"{% endif %}
-          {% if is_f5 %}data-f5-ha="1"{% endif %}
+          {% if is_f5_ha %}data-f5-ha="1"{% endif %}
+          {% if is_f5_standalone %}data-f5-standalone="1"{% endif %}
         >
           {% csrf_token %}
           <div class="alert alert-danger py-2 px-3 small mb-3 d-none js-backup-form-errors" role="alert"></div>

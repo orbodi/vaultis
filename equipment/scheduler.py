@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from .models import BackupJob, BackupSchedule
 from .f5_credentials import default_f5_credentials_configured
+from .f5_variant import is_f5_family_slug, is_f5_ha_slug
 from .nethsm_credentials import default_nethsm_credentials_configured
 from .services import run_backup_job
 
@@ -95,12 +96,12 @@ def validate_schedule_runnable(schedule: BackupSchedule) -> str | None:
             "Identifiants NetHSM par défaut non configurés (.env) — "
             "requis pour les sauvegardes planifiées."
         )
-    if slug == "f5" and not default_f5_credentials_configured():
+    if is_f5_family_slug(slug) and not default_f5_credentials_configured():
         return (
             "Identifiants F5 par défaut non configurés (.env : F5_SSH_* ou F5_API_*) — "
             "requis pour les sauvegardes planifiées."
         )
-    if slug == "f5" and not equipment.hosts.exists():
+    if is_f5_ha_slug(slug) and not equipment.hosts.exists():
         return "Aucun nœud de cluster F5 configuré dans l'administration."
     if slug not in ("ddos", "f5"):
         host = resolve_schedule_host(schedule)

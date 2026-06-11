@@ -43,6 +43,9 @@ def jobs_history_payload(equipment: Equipment) -> dict:
     jobs = list(recent_jobs_for_equipment(equipment))
     return {
         "jobs": [serialize_backup_job(j) for j in jobs],
-        "has_running": any(j.status == BackupJob.Status.RUNNING for j in jobs),
+        "has_running": any(
+            j.status in (BackupJob.Status.RUNNING, BackupJob.Status.PENDING)
+            for j in jobs
+        ),
         "latest_id": jobs[0].pk if jobs else None,
     }

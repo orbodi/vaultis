@@ -40,6 +40,8 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-vaultis}:${POSTGRES_PASSWORD:-vaultis}@db:5432/${POSTGRES_DB:-vaultis}
       NITROKEY_BACKUP_ROOT: ${NITROKEY_BACKUP_ROOT:-/app/data/backups/nitrokey}
       F5_BACKUP_ROOT: ${F5_BACKUP_ROOT:-/app/data/backups/f5}
+      F5_DN1_BACKUP_ROOT: ${F5_DN1_BACKUP_ROOT:-/app/data/backups/f5-dn1}
+      F5_DN2_BACKUP_ROOT: ${F5_DN2_BACKUP_ROOT:-/app/data/backups/f5-dn2}
       GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-7200}
       BACKUP_JOB_STALE_MINUTES: ${BACKUP_JOB_STALE_MINUTES:-30}
       # Arbor AED (chemins conteneur ; bind mount via volumes ci-dessous)
@@ -53,6 +55,8 @@ services:
       - ${VAULTIS_SECRETS_DIR:-./secrets}:/app/secrets:ro
       # F5 : dossier hôte des .ucs → F5_BACKUP_ROOT dans le conteneur
       - ${F5_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5}:/app/data/backups/f5
+      - ${F5_DN1_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn1}:/app/data/backups/f5-dn1
+      - ${F5_DN2_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn2}:/app/data/backups/f5-dn2
       # Arbor AED : hôte → chemins fixes dans le conteneur (voir ARBOR_AED_SOURCE_HOST_* / _DIR_*)
       - ${ARBOR_AED_SOURCE_HOST_DC01:-${ARBOR_AED_SOURCE_DIR_DC01:-/tmp/vaultis-arbor-dc01-skip}}:/app/arbor/incoming/dc01:ro
       - ${ARBOR_AED_SOURCE_HOST_DC02:-${ARBOR_AED_SOURCE_DIR_DC02:-/tmp/vaultis-arbor-dc02-skip}}:/app/arbor/incoming/dc02:ro
@@ -80,6 +84,8 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-vaultis}:${POSTGRES_PASSWORD:-vaultis}@db:5432/${POSTGRES_DB:-vaultis}
       NITROKEY_BACKUP_ROOT: ${NITROKEY_BACKUP_ROOT:-/app/data/backups/nitrokey}
       F5_BACKUP_ROOT: ${F5_BACKUP_ROOT:-/app/data/backups/f5}
+      F5_DN1_BACKUP_ROOT: ${F5_DN1_BACKUP_ROOT:-/app/data/backups/f5-dn1}
+      F5_DN2_BACKUP_ROOT: ${F5_DN2_BACKUP_ROOT:-/app/data/backups/f5-dn2}
       BACKUP_SCHEDULER_INTERVAL_SECONDS: ${BACKUP_SCHEDULER_INTERVAL_SECONDS:-60}
       ARBOR_AED_ACTIVE_DCS: ${ARBOR_AED_ACTIVE_DCS:-}
       ARBOR_AED_SOURCE_DIR_DC01: ${ARBOR_AED_SOURCE_DIR_DC01:-/app/arbor/incoming/dc01}
@@ -90,6 +96,8 @@ services:
       - ${VAULTIS_HOST_DATA_DIR:-./data}:/app/data
       - ${VAULTIS_SECRETS_DIR:-./secrets}:/app/secrets:ro
       - ${F5_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5}:/app/data/backups/f5
+      - ${F5_DN1_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn1}:/app/data/backups/f5-dn1
+      - ${F5_DN2_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn2}:/app/data/backups/f5-dn2
       - ${ARBOR_AED_SOURCE_HOST_DC01:-${ARBOR_AED_SOURCE_DIR_DC01:-/tmp/vaultis-arbor-dc01-skip}}:/app/arbor/incoming/dc01:ro
       - ${ARBOR_AED_SOURCE_HOST_DC02:-${ARBOR_AED_SOURCE_DIR_DC02:-/tmp/vaultis-arbor-dc02-skip}}:/app/arbor/incoming/dc02:ro
     depends_on:

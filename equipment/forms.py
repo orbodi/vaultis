@@ -4,6 +4,7 @@ from django import forms
 
 from .models import BackupSchedule, Equipment, EquipmentHost
 from .f5_credentials import default_f5_credentials_configured
+from .f5_variant import is_f5_family_slug, is_f5_ha_slug
 from .nethsm_credentials import default_nethsm_credentials_configured
 
 
@@ -43,7 +44,7 @@ class BackupScheduleForm(forms.ModelForm):
         self.fields["equipment_host"].empty_label = "Premier host disponible"
 
         slug = equipment.equipment_type.slug
-        if slug in ("ddos", "f5"):
+        if slug in ("ddos", "f5"):  # f5 HA : pas de sélecteur ; DN : host visible si plusieurs
             self.fields["equipment_host"].widget = forms.HiddenInput()
         elif not host_qs.exists():
             self.fields["equipment_host"].widget = forms.HiddenInput()
@@ -71,14 +72,14 @@ class BackupScheduleForm(forms.ModelForm):
                 "Les sauvegardes planifiées Nitrokey nécessitent les identifiants "
                 "par défaut du serveur (NITROKEY_NETHSM_* dans .env)."
             )
-        if slug == "f5" and not default_f5_credentials_configured():
+        if is_f5_family_slug(slug) and not default_f5_credentials_configured():
             raise forms.ValidationError(
                 "Les sauvegardes planifiées F5 nécessitent les identifiants "
                 "par défaut du serveur (F5_SSH_* ou F5_API_* dans .env)."
             )
 
         host_qs = self.fields["equipment_host"].queryset
-        if slug == "f5":
+        if is_f5_ha_slug(slug):
             if not host_qs.exists():
                 raise forms.ValidationError(
                     "Configurez au moins un nœud du cluster F5 dans l'administration."

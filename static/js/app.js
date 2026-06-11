@@ -1,4 +1,4 @@
-/** vaultis app.js v20260608 */
+/** vaultis app.js v20260611 */
 /**
  * Sauvegarde : validation, modal de confirmation, overlay de progression.
  */
@@ -33,6 +33,19 @@ document.addEventListener("DOMContentLoaded", function () {
     "Classement full / inc et copie locale…",
     "Transfert SCP vers la VM Windows…",
     "Envoi des volumes (opération longue)…",
+  ];
+
+  var f5HaStatusMessages = [
+    "Détection du membre actif du cluster HA…",
+    "Connexion SSH au F5 actif…",
+    "Génération UCS (tmsh save sys ucs)…",
+    "Téléchargement et transfert…",
+  ];
+
+  var f5StandaloneStatusMessages = [
+    "Connexion SSH au F5…",
+    "Génération UCS (tmsh save sys ucs)…",
+    "Téléchargement et transfert…",
   ];
 
   if (progressOverlay && progressOverlay.parentElement !== document.body) {
@@ -90,7 +103,14 @@ document.addEventListener("DOMContentLoaded", function () {
       progressEquipment.textContent = options.equipmentName;
     }
 
-    var messages = options.isArbor ? arborStatusMessages : defaultStatusMessages;
+    var messages = defaultStatusMessages;
+    if (options.isArbor) {
+      messages = arborStatusMessages;
+    } else if (options.isF5Standalone) {
+      messages = f5StandaloneStatusMessages;
+    } else if (options.isF5) {
+      messages = f5HaStatusMessages;
+    }
     startStatusRotation(messages);
 
     progressOverlay.classList.remove("d-none");
@@ -118,12 +138,22 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     var equipmentTitle = document.querySelector(".app-page-title");
     var isArborForm = Boolean(form.getAttribute("data-arbor-dcs"));
+    var isF5HaForm = Boolean(form.getAttribute("data-f5-ha"));
+    var isF5StandaloneForm = Boolean(form.getAttribute("data-f5-standalone"));
     showBackupProgress({
       equipmentName: equipmentTitle ? equipmentTitle.textContent.trim() : "",
       isArbor: isArborForm,
+      isF5: isF5HaForm || isF5StandaloneForm,
+      isF5Standalone: isF5StandaloneForm,
     });
     window.setTimeout(function () {
-      HTMLFormElement.prototype.submit.call(form);
+      var submitBtn = document.createElement("button");
+      submitBtn.type = "submit";
+      submitBtn.hidden = true;
+      submitBtn.setAttribute("aria-hidden", "true");
+      form.appendChild(submitBtn);
+      submitBtn.click();
+      submitBtn.remove();
     }, 200);
   }
 

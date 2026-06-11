@@ -659,7 +659,7 @@ class F5AdapterTests(TestCase):
         "equipment.adapters.f5.resolve_active_mgmt_ip_for_job",
         return_value="172.16.11.26",
     )
-    @patch("equipment.adapters.f5._F5SSHSession")
+    @patch("equipment.adapters.f5_ssh_core.F5SSHSession")
     @override_settings(F5_SSH_USER="backup-apiuser", F5_SSH_PASSWORD="pass")
     def test_ssh_saves_ucs_locally(self, mock_session_cls, _mock_active):
         from pathlib import Path
@@ -777,3 +777,55 @@ class F5HaTests(TestCase):
             verify_tls=False,
         )
         self.assertEqual(active, "172.16.11.26")
+
+
+class F5Dn1AdapterTests(TestCase):
+    def setUp(self):
+        self.eq_type, _ = EquipmentType.objects.get_or_create(
+            slug="f5-dn1",
+            defaults={
+                "name": "F5 DN1",
+                "adapter_key": "equipment.adapters.f5_dn1",
+            },
+        )
+        self.equipment = Equipment.objects.create(
+            name="F5-DN1",
+            equipment_type=self.eq_type,
+            extra={"integration": "ssh"},
+        )
+        self.host = EquipmentHost.objects.create(
+            equipment=self.equipment,
+            label="DN1 mgmt",
+            address="172.16.21.10",
+        )
+
+    @patch("equipment.adapters.f5_ssh_core.F5SSHSession")
+    @override_settings(
+        F5_SSH_USER="backup-apiuser",
+        F5_SSH_PASSWORD="pass",
+        F5_DN1_BACKUP_ROOT="/tmp/f5-dn1-test",
+    )
+    def test_ssh_backup_uses_configured_host(self, mock_session_cls):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from equipment.adapters.f5_dn1 import Adapter as F5Dn1Adapter
+
+        mock_session = mock_session_cls.return_value
+        mock_session.__enter__.return_value = mock_session
+
+        with TemporaryDirectory() as backup_dir:
+            ucs_path = Path(backup_dir) / "f5-dn1-20260610-174500.ucs"
+            ucs_path.write_bytes(b"ucs-data")
+            mock_session.run_backup.return_value = (ucs_path, ucs_path.name)
+
+            with override_settings(F5_DN1_BACKUP_ROOT=Path(backup_dir)):
+                job = BackupJob.objects.create(
+                    equipment=self.equipment,
+                    equipment_host=self.host,
+                )
+                message = F5Dn1Adapter().run_backup(job)
+
+        self.assertIn("F5-DN1", message)
+        mock_session_cls.assert_called_once()
+        self.assertEqual(mock_session_cls.call_args.args[0], "172.16.21.10")

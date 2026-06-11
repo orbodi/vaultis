@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -10,9 +12,12 @@ from .forms import BackupScheduleForm
 from .job_history import jobs_history_payload
 from .models import BackupJob, BackupSchedule, Equipment, EquipmentHost
 from .f5_credentials import default_f5_credentials_configured, env_f5_user_password
+from .f5_variant import is_f5_family_slug, is_f5_ha_slug
 from .nethsm_credentials import default_nethsm_credentials_configured
 from .scheduler import compute_next_run, schedule_summary
-from .services import run_backup_job
+from .services import run_backup_job_async
+
+logger = logging.getLogger(__name__)
 
 _HOSTS_PREFETCH = Prefetch(
     "hosts",
@@ -44,16 +49,21 @@ def equipment_detail(request, pk: int):
             "equipment_host",
         )[:5]
     )
-    has_running_job = any(j.status == BackupJob.Status.RUNNING for j in jobs)
+    has_running_job = any(
+        j.status in (BackupJob.Status.RUNNING, BackupJob.Status.PENDING)
+        for j in jobs
+    )
     slug = equipment.equipment_type.slug
     is_nitrokey = slug == "nitrokey"
-    is_f5 = slug == "f5"
+    is_f5_ha = is_f5_ha_slug(slug)
+    is_f5_standalone = slug in ("f5-dn1", "f5-dn2")
+    is_f5_family = is_f5_family_slug(slug)
     is_arbor_aed = slug == "ddos"
-    requires_api_credentials = is_nitrokey or is_f5
+    requires_api_credentials = is_nitrokey or is_f5_family
     if is_nitrokey:
         has_default_credentials = default_nethsm_credentials_configured()
         default_api_username = getattr(settings, "NITROKEY_NETHSM_USER", "") if has_default_credentials else ""
-    elif is_f5:
+    elif is_f5_family:
         has_default_credentials = default_f5_credentials_configured()
         default_api_username = env_f5_user_password()[0] if has_default_credentials else ""
     else:
@@ -71,7 +81,9 @@ def equipment_detail(request, pk: int):
             "requires_host_selection": slug not in ("ddos", "f5"),
             "requires_api_credentials": requires_api_credentials,
             "is_arbor_aed": is_arbor_aed,
-            "is_f5": is_f5,
+            "is_f5_ha": is_f5_ha,
+            "is_f5_standalone": is_f5_standalone,
+            "is_f5_family": is_f5_family,
             "arbor_active_dcs_display": getattr(settings, "ARBOR_AED_ACTIVE_DCS", "") if is_arbor_aed else "",
             "has_default_api_credentials": has_default_credentials,
             "default_api_username": default_api_username,
@@ -90,7 +102,7 @@ def equipment_backup(request, pk: int):
     equipment = get_object_or_404(Equipment, pk=pk)
     equipment_host = None
     slug = equipment.equipment_type.slug
-    if slug == "f5":
+    if is_f5_ha_slug(slug):
         host_qs = EquipmentHost.objects.filter(equipment=equipment)
         if not host_qs.exists():
             messages.error(
@@ -113,7 +125,7 @@ def equipment_backup(request, pk: int):
         equipment_host = get_object_or_404(host_qs, pk=int(raw_host_id))
 
     credentials = None
-    if slug in ("nitrokey", "f5"):
+    if slug == "nitrokey" or is_f5_family_slug(slug):
         credentials_mode = request.POST.get("credentials_mode", "default").strip().lower()
         if credentials_mode == "custom":
             username = request.POST.get("api_username", "").strip()
@@ -128,7 +140,7 @@ def equipment_backup(request, pk: int):
                 "Identifiants NetHSM par défaut non configurés sur le serveur (.env).",
             )
             return redirect("equipment_detail", pk=equipment.pk)
-        elif slug == "f5" and not default_f5_credentials_configured():
+        elif is_f5_family_slug(slug) and not default_f5_credentials_configured():
             messages.error(
                 request,
                 "Identifiants SSH F5 par défaut non configurés sur le serveur (.env).",
@@ -140,13 +152,20 @@ def equipment_backup(request, pk: int):
         equipment_host=equipment_host,
         triggered_by=request.user,
         trigger=BackupJob.Trigger.MANUAL,
+        status=BackupJob.Status.RUNNING,
     )
-    run_backup_job(job, credentials=credentials)
-    job.refresh_from_db()
-    if job.status == BackupJob.Status.SUCCESS:
-        messages.success(request, job.message or "Sauvegarde réussie.")
-    else:
-        messages.error(request, job.message or "Échec de la sauvegarde.")
+    logger.info(
+        "Manual backup queued job_id=%s equipment_id=%s slug=%s user=%s",
+        job.pk,
+        equipment.pk,
+        slug,
+        request.user.username,
+    )
+    run_backup_job_async(job.pk, credentials=credentials)
+    messages.info(
+        request,
+        "Sauvegarde démarrée — suivez la progression dans l'historique ci-dessous.",
+    )
     return redirect("equipment_detail", pk=equipment.pk)
 
 
