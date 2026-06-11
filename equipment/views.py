@@ -17,6 +17,7 @@ from .f5_variant import (
     is_f5_ha_equipment,
     is_f5_ha_slug,
     is_f5_standalone_equipment,
+    is_f5_standalone_slug,
 )
 from .nethsm_credentials import default_nethsm_credentials_configured
 from .scheduler import compute_next_run, schedule_summary
@@ -116,6 +117,25 @@ def equipment_backup(request, pk: int):
                 "Aucun nœud de cluster F5 configuré (administration → hosts de management).",
             )
             return redirect("equipment_detail", pk=equipment.pk)
+    elif is_f5_standalone_slug(slug):
+        host_qs = EquipmentHost.objects.filter(equipment=equipment).order_by(
+            "sort_order",
+            "pk",
+        )
+        if not host_qs.exists():
+            messages.error(
+                request,
+                "Aucun host de management configuré (administration → hosts de management).",
+            )
+            return redirect("equipment_detail", pk=equipment.pk)
+        if host_qs.count() == 1:
+            equipment_host = host_qs.first()
+        else:
+            raw_host_id = request.POST.get("equipment_host_id", "").strip()
+            if not raw_host_id.isdigit():
+                messages.error(request, "Host requis.")
+                return redirect("equipment_detail", pk=equipment.pk)
+            equipment_host = get_object_or_404(host_qs, pk=int(raw_host_id))
     elif slug != "ddos":
         host_qs = EquipmentHost.objects.filter(equipment=equipment).order_by(
             "sort_order",

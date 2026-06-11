@@ -48,11 +48,15 @@
           </div>
         {% elif is_f5_standalone %}
           <div class="alert alert-secondary py-2 px-3 small mb-4" role="status">
-            F5 standalone (sans HA) : sauvegarde SSH directe sur le host de management configuré
+            F5 standalone (sans HA) : même logique SSH et mêmes identifiants
+            <code>F5_INTEGRATION</code> / <code>F5_SSH_*</code> que le cluster HA —
+            connexion directe sur l'IP de management
             {% if host_list|length == 0 %}
               <span class="text-danger">(aucun host configuré)</span>
+            {% elif host_list|length == 1 %}
+              (<code>{{ host_list.0.address }}</code>)
             {% endif %}
-            — identifiants <code>F5_SSH_*</code> dans le <code>.env</code>.
+            .
           </div>
         {% endif %}
         <hr class="my-4 opacity-25">

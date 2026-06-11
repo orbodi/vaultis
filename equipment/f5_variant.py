@@ -86,7 +86,13 @@ def _env_or_setting(*keys: str, default: str = "") -> str:
     return default
 
 
-def _variant_keys(variant: F5Variant, suffix: str) -> tuple[str, ...]:
+def _shared_f5_keys(suffix: str) -> tuple[str, ...]:
+    """Intégration, SSH, identifiants — communs à HA et DN."""
+    return (f"F5_{suffix}",)
+
+
+def _variant_path_keys(variant: F5Variant, suffix: str) -> tuple[str, ...]:
+    """Chemins de stockage — spécifiques DN1/DN2 avec repli F5_*."""
     keys: list[str] = []
     if variant.env_prefix:
         keys.append(f"{variant.env_prefix}_{suffix}")
@@ -103,7 +109,7 @@ def integration_mode(job: BackupJob, variant: F5Variant) -> str:
     mode = (extra.get("integration") or extra.get("integration_mode") or "").strip().lower()
     if mode in ("ssh", "icontrol"):
         return "ssh"
-    env_mode = _env_or_setting(*_variant_keys(variant, "INTEGRATION")).lower()
+    env_mode = _env_or_setting(*_shared_f5_keys("INTEGRATION")).lower()
     if env_mode in ("ssh", "icontrol"):
         return "ssh"
     if extra.get("ssh_user") and extra.get("ssh_password"):
@@ -135,25 +141,25 @@ def raise_unless_demo_allowed() -> None:
 
 
 def ssh_port(variant: F5Variant) -> int:
-    raw = _env_or_setting(*_variant_keys(variant, "SSH_PORT"), default="22")
+    raw = _env_or_setting(*_shared_f5_keys("SSH_PORT"), default="22")
     return int(raw or 22)
 
 
 def ssh_save_timeout(variant: F5Variant) -> int:
-    raw = _env_or_setting(*_variant_keys(variant, "SSH_SAVE_TIMEOUT"), default="7200")
+    raw = _env_or_setting(*_shared_f5_keys("SSH_SAVE_TIMEOUT"), default="7200")
     return int(raw or 7200)
 
 
 def ucs_device_dir(variant: F5Variant) -> str:
     raw = _env_or_setting(
-        *_variant_keys(variant, "UCS_DEVICE_DIR"),
+        *_shared_f5_keys("UCS_DEVICE_DIR"),
         default="/var/local/ucs",
     )
     return (raw or "/var/local/ucs").rstrip("/")
 
 
 def backup_root(variant: F5Variant) -> Path:
-    for key in _variant_keys(variant, "BACKUP_ROOT"):
+    for key in _variant_path_keys(variant, "BACKUP_ROOT"):
         raw = _env_or_setting(key)
         if raw:
             return Path(raw)
@@ -176,35 +182,30 @@ def ucs_filename(short_hostname: str) -> str:
 
 def windows_scp_config(variant: F5Variant) -> dict | None:
     host = _env_or_setting(
-        *_variant_keys(variant, "WINDOWS_SCP_HOST"),
-        *_variant_keys(F5, "WINDOWS_SCP_HOST"),
+        *_shared_f5_keys("WINDOWS_SCP_HOST"),
         "F5_SCP_HOST",
         "NITROKEY_WINDOWS_SCP_HOST",
     )
     username = _env_or_setting(
-        *_variant_keys(variant, "WINDOWS_SCP_USERNAME"),
-        *_variant_keys(F5, "WINDOWS_SCP_USERNAME"),
+        *_shared_f5_keys("WINDOWS_SCP_USERNAME"),
         "F5_SCP_USERNAME",
         "NITROKEY_WINDOWS_SCP_USERNAME",
     )
     password = _env_or_setting(
-        *_variant_keys(variant, "WINDOWS_SCP_PASSWORD"),
-        *_variant_keys(F5, "WINDOWS_SCP_PASSWORD"),
+        *_shared_f5_keys("WINDOWS_SCP_PASSWORD"),
         "F5_SCP_PASSWORD",
         "NITROKEY_WINDOWS_SCP_PASSWORD",
     )
     if not host or not username or not password:
         return None
     port_raw = _env_or_setting(
-        *_variant_keys(variant, "WINDOWS_SCP_PORT"),
-        *_variant_keys(F5, "WINDOWS_SCP_PORT"),
+        *_shared_f5_keys("WINDOWS_SCP_PORT"),
         "F5_SCP_PORT",
         "NITROKEY_WINDOWS_SCP_PORT",
         default="22",
     )
     remote_parent = _env_or_setting(
-        *_variant_keys(variant, "WINDOWS_SCP_REMOTE_DIR"),
-        *_variant_keys(F5, "WINDOWS_SCP_REMOTE_DIR"),
+        *_variant_path_keys(variant, "WINDOWS_SCP_REMOTE_DIR"),
         "F5_SCP_REMOTE_PARENT_DIR",
         "NITROKEY_WINDOWS_SCP_REMOTE_DIR",
     )

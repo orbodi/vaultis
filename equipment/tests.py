@@ -791,7 +791,7 @@ class F5Dn1AdapterTests(TestCase):
         self.equipment = Equipment.objects.create(
             name="F5-DN1",
             equipment_type=self.eq_type,
-            extra={"integration": "ssh"},
+            extra={},
         )
         self.host = EquipmentHost.objects.create(
             equipment=self.equipment,
@@ -799,11 +799,11 @@ class F5Dn1AdapterTests(TestCase):
             address="172.16.21.10",
         )
 
-    @override_settings(DEBUG=False, F5_INTEGRATION="", F5_SSH_USER="", F5_SSH_PASSWORD="")
-    def test_demo_blocked_in_production_without_credentials(self):
+    @override_settings(F5_SSH_USER="", F5_SSH_PASSWORD="")
+    def test_credentials_required_no_demo_fallback(self):
         from equipment.adapters.f5_dn1 import Adapter as F5Dn1Adapter
 
-        self.equipment.extra = {}
+        self.equipment.extra = {"integration": "demo"}
         self.equipment.save(update_fields=["extra"])
         job = BackupJob.objects.create(
             equipment=self.equipment,
@@ -811,10 +811,25 @@ class F5Dn1AdapterTests(TestCase):
         )
         with self.assertRaises(BackupAdapterError) as ctx:
             F5Dn1Adapter().run_backup(job)
-        self.assertIn("SSH", str(ctx.exception))
+        self.assertIn("Identifiants F5", str(ctx.exception))
+
+    @override_settings(
+        F5_INTEGRATION="ssh",
+        F5_SSH_USER="backup-apiuser",
+        F5_SSH_PASSWORD="pass",
+    )
+    def test_integration_mode_uses_shared_f5_env(self):
+        from equipment.f5_variant import F5_DN1, integration_mode
+
+        job = BackupJob.objects.create(
+            equipment=self.equipment,
+            equipment_host=self.host,
+        )
+        self.assertEqual(integration_mode(job, F5_DN1), "ssh")
 
     @patch("equipment.adapters.f5_ssh_core.F5SSHSession")
     @override_settings(
+        F5_INTEGRATION="ssh",
         F5_SSH_USER="backup-apiuser",
         F5_SSH_PASSWORD="pass",
         F5_DN1_BACKUP_ROOT="/tmp/f5-dn1-test",
@@ -847,6 +862,7 @@ class F5Dn1AdapterTests(TestCase):
     @patch("equipment.adapters.f5_ssh_core._upload_to_windows")
     @patch("equipment.adapters.f5_ssh_core.F5SSHSession")
     @override_settings(
+        F5_INTEGRATION="ssh",
         F5_SSH_USER="backup-apiuser",
         F5_SSH_PASSWORD="pass",
         F5_WINDOWS_SCP_HOST="win-vm.example.com",
