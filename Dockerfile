@@ -18,7 +18,7 @@ COPY . .
 
 RUN chmod +x /app/docker/entrypoint.sh /app/docker/scheduler-loop.sh \
     && useradd --create-home --uid 1000 appuser \
-    && mkdir -p /app/data/backups/nitrokey /app/staticfiles \
+    && mkdir -p /app/data/backups/nitrokey /app/data/backups/f5 /app/staticfiles \
     && chown -R appuser:appuser /app
 
 USER appuser

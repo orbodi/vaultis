@@ -243,6 +243,54 @@ NITROKEY_NETHSM_VERIFY_TLS = os.environ.get(
     "true",
 ).lower() in ("1", "true", "yes")
 
+# F5 BIG-IP (adaptateur equipment.adapters.f5 — SSH + tmsh)
+F5_INTEGRATION = os.environ.get("F5_INTEGRATION", "").strip().lower()
+_f5_ssh_user_file = (
+    os.environ.get("F5_SSH_USER_FILE", "").strip()
+    or os.environ.get("F5_ICONTROL_USER_FILE", "").strip()
+)
+if _f5_ssh_user_file:
+    F5_SSH_USER = Path(_f5_ssh_user_file).read_text(encoding="utf-8").strip("\r\n")
+else:
+    F5_SSH_USER = (
+        os.environ.get("F5_SSH_USER", "").strip()
+        or os.environ.get("F5_ICONTROL_USER", "").strip()
+    )
+_f5_ssh_password_file = (
+    os.environ.get("F5_SSH_PASSWORD_FILE", "").strip()
+    or os.environ.get("F5_ICONTROL_PASSWORD_FILE", "").strip()
+)
+_f5_ssh_password = os.environ.get("F5_SSH_PASSWORD", "") or os.environ.get("F5_ICONTROL_PASSWORD", "")
+if _f5_ssh_password_file:
+    F5_SSH_PASSWORD = Path(_f5_ssh_password_file).read_text(encoding="utf-8").strip("\r\n")
+else:
+    F5_SSH_PASSWORD = _f5_ssh_password
+F5_SSH_PORT = int(os.environ.get("F5_SSH_PORT", "22") or "22")
+F5_SSH_SAVE_TIMEOUT = int(os.environ.get("F5_SSH_SAVE_TIMEOUT", "7200") or "7200")
+F5_UCS_DEVICE_DIR = os.environ.get("F5_UCS_DEVICE_DIR", "/var/local/ucs").strip() or "/var/local/ucs"
+_f5_backup_root = os.environ.get("F5_BACKUP_ROOT", "").strip()
+F5_BACKUP_ROOT = Path(_f5_backup_root) if _f5_backup_root else BASE_DIR / "backups" / "f5"
+# Transfert Windows (repli NITROKEY_WINDOWS_SCP_* si vide)
+F5_WINDOWS_SCP_HOST = os.environ.get("F5_WINDOWS_SCP_HOST", "").strip() or os.environ.get("F5_SCP_HOST", "").strip()
+F5_WINDOWS_SCP_PORT = int(os.environ.get("F5_WINDOWS_SCP_PORT", "0") or os.environ.get("F5_SCP_PORT", "0") or "0") or None
+F5_WINDOWS_SCP_USERNAME = os.environ.get("F5_WINDOWS_SCP_USERNAME", "").strip() or os.environ.get("F5_SCP_USERNAME", "").strip()
+_f5_win_scp_password_file = os.environ.get("F5_WINDOWS_SCP_PASSWORD_FILE", "").strip() or os.environ.get("F5_SCP_PASSWORD_FILE", "").strip()
+_f5_win_scp_password = os.environ.get("F5_WINDOWS_SCP_PASSWORD", "") or os.environ.get("F5_SCP_PASSWORD", "")
+if _f5_win_scp_password_file:
+    F5_WINDOWS_SCP_PASSWORD = Path(_f5_win_scp_password_file).read_text(encoding="utf-8").strip("\r\n")
+else:
+    F5_WINDOWS_SCP_PASSWORD = _f5_win_scp_password
+F5_WINDOWS_SCP_REMOTE_DIR = (
+    os.environ.get("F5_WINDOWS_SCP_REMOTE_DIR", "").strip()
+    or os.environ.get("F5_SCP_REMOTE_PARENT_DIR", "").strip()
+)
+# Alias rétrocompat
+F5_SCP_HOST = F5_WINDOWS_SCP_HOST
+F5_SCP_PORT = F5_WINDOWS_SCP_PORT
+F5_SCP_USERNAME = F5_WINDOWS_SCP_USERNAME
+F5_SCP_PASSWORD = F5_WINDOWS_SCP_PASSWORD
+F5_SCP_REMOTE_PARENT_DIR = F5_WINDOWS_SCP_REMOTE_DIR
+
 # Arbor AED (adaptateur equipment.adapters.arbor_aed)
 _arbor_source = os.environ.get("ARBOR_AED_SOURCE_DIR", "").strip()
 ARBOR_AED_SOURCE_DIR = Path(_arbor_source) if _arbor_source else None

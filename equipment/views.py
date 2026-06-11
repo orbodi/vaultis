@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .forms import BackupScheduleForm
 from .job_history import jobs_history_payload
 from .models import BackupJob, BackupSchedule, Equipment, EquipmentHost
+from .f5_credentials import default_f5_credentials_configured
 from .nethsm_credentials import default_nethsm_credentials_configured
 from .scheduler import compute_next_run, schedule_summary
 from .services import run_backup_job
@@ -46,8 +47,18 @@ def equipment_detail(request, pk: int):
     has_running_job = any(j.status == BackupJob.Status.RUNNING for j in jobs)
     slug = equipment.equipment_type.slug
     is_nitrokey = slug == "nitrokey"
+    is_f5 = slug == "f5"
     is_arbor_aed = slug == "ddos"
-    has_default_credentials = default_nethsm_credentials_configured() if is_nitrokey else False
+    requires_api_credentials = is_nitrokey or is_f5
+    if is_nitrokey:
+        has_default_credentials = default_nethsm_credentials_configured()
+        default_api_username = getattr(settings, "NITROKEY_NETHSM_USER", "") if has_default_credentials else ""
+    elif is_f5:
+        has_default_credentials = default_f5_credentials_configured()
+        default_api_username = getattr(settings, "F5_SSH_USER", "") if has_default_credentials else ""
+    else:
+        has_default_credentials = False
+        default_api_username = ""
     schedule = BackupSchedule.objects.filter(equipment=equipment).first()
     schedule_form = BackupScheduleForm(equipment=equipment, instance=schedule)
     schedule_summary_text = schedule_summary(schedule) if schedule else ""
@@ -58,11 +69,12 @@ def equipment_detail(request, pk: int):
             "equipment": equipment,
             "jobs": jobs,
             "requires_host_selection": not is_arbor_aed,
-            "requires_api_credentials": is_nitrokey,
+            "requires_api_credentials": requires_api_credentials,
             "is_arbor_aed": is_arbor_aed,
+            "is_f5": is_f5,
             "arbor_active_dcs_display": getattr(settings, "ARBOR_AED_ACTIVE_DCS", "") if is_arbor_aed else "",
-            "has_default_nethsm_credentials": has_default_credentials,
-            "default_nethsm_username": getattr(settings, "NITROKEY_NETHSM_USER", "") if has_default_credentials else "",
+            "has_default_api_credentials": has_default_credentials,
+            "default_api_username": default_api_username,
             "schedule": schedule,
             "schedule_form": schedule_form,
             "schedule_summary": schedule_summary_text,
@@ -92,7 +104,8 @@ def equipment_backup(request, pk: int):
         equipment_host = get_object_or_404(host_qs, pk=int(raw_host_id))
 
     credentials = None
-    if equipment.equipment_type.slug == "nitrokey":
+    slug = equipment.equipment_type.slug
+    if slug in ("nitrokey", "f5"):
         credentials_mode = request.POST.get("credentials_mode", "default").strip().lower()
         if credentials_mode == "custom":
             username = request.POST.get("api_username", "").strip()
@@ -101,10 +114,16 @@ def equipment_backup(request, pk: int):
                 messages.error(request, "Identifiants API personnalisés requis.")
                 return redirect("equipment_detail", pk=equipment.pk)
             credentials = {"username": username, "password": password}
-        elif not default_nethsm_credentials_configured():
+        elif slug == "nitrokey" and not default_nethsm_credentials_configured():
             messages.error(
                 request,
-                "Identifiants par défaut non configurés sur le serveur (.env).",
+                "Identifiants NetHSM par défaut non configurés sur le serveur (.env).",
+            )
+            return redirect("equipment_detail", pk=equipment.pk)
+        elif slug == "f5" and not default_f5_credentials_configured():
+            messages.error(
+                request,
+                "Identifiants SSH F5 par défaut non configurés sur le serveur (.env).",
             )
             return redirect("equipment_detail", pk=equipment.pk)
 

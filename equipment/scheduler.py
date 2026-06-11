@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from django.utils import timezone
 
 from .models import BackupJob, BackupSchedule
+from .f5_credentials import default_f5_credentials_configured
 from .nethsm_credentials import default_nethsm_credentials_configured
 from .services import run_backup_job
 
@@ -92,6 +93,11 @@ def validate_schedule_runnable(schedule: BackupSchedule) -> str | None:
     if slug == "nitrokey" and not default_nethsm_credentials_configured():
         return (
             "Identifiants NetHSM par défaut non configurés (.env) — "
+            "requis pour les sauvegardes planifiées."
+        )
+    if slug == "f5" and not default_f5_credentials_configured():
+        return (
+            "Identifiants SSH F5 par défaut non configurés (.env) — "
             "requis pour les sauvegardes planifiées."
         )
     if slug != "ddos":

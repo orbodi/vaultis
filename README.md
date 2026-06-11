@@ -6,7 +6,8 @@ Application web Django pour inventorier des équipements réseau et lancer des s
 |------|------|
 | **Nitrokey / NetHSM** | API réelle (`POST /api/v1/system/backup`) |
 | **Arbor AED** | Classement `arbor-backup-*` + archivage SCP |
-| F5, Palo Alto, etc. | Simulé (adaptateur stub) |
+| **F5 BIG-IP** | SSH + `tmsh save sys ucs` + SCP Windows |
+| Palo Alto, etc. | Simulé (adaptateur stub) |
 
 ## Prérequis
 
@@ -40,7 +41,8 @@ Données persistantes (bind mount sur l’hôte, voir `.env`) :
 
 | Variable | Montage conteneur | Contenu |
 |----------|-------------------|---------|
-| `VAULTIS_HOST_DATA_DIR` | `/app/data` | Sauvegardes NetHSM (`.bkp` sous `backups/nitrokey/`) |
+| `VAULTIS_HOST_DATA_DIR` | `/app/data` | Données applicatives (NetHSM, F5, staging…) |
+| `F5_BACKUP_HOST_DIR` | `/app/data/backups/f5` | Dossier hôte des `.ucs` F5 (défaut : `{VAULTIS_HOST_DATA_DIR}/backups/f5`) |
 | `POSTGRES_HOST_DATA_DIR` | `/var/lib/postgresql/data` | Base PostgreSQL |
 
 Exemple sur le serveur :
@@ -236,6 +238,45 @@ Lancer depuis la fiche équipement type **Arbor AED** (bouton « Lancer une sauv
 | Dev | `true` | `Sauvegarde simulée — …` (si mode démo) |
 | Prod | `false` | `Backup enregistré — ….bkp (… Ko).` |
 
+## F5 BIG-IP
+
+### Processus (SSH)
+
+1. Connexion SSH au host de management sélectionné
+2. `tmsh save sys ucs <nom>` — attente fin de génération
+3. SFTP : `/var/local/ucs/<nom>.ucs` → `F5_BACKUP_ROOT` (bind mount Docker)
+4. `tmsh delete sys ucs <nom>` sur le F5
+5. SCP optionnel vers la VM Windows
+
+Nom du fichier : `<hostname-court>-<YYYYMMDD-HHMMSS>.ucs`  
+(ex. `dc01-ltm-20260610-174500.ucs` — hostname lu via `tmsh list sys global hostname`).
+
+### Configuration
+
+```env
+F5_INTEGRATION=ssh
+F5_SSH_USER=admin
+F5_SSH_PASSWORD=...
+F5_SSH_PORT=22
+F5_SSH_SAVE_TIMEOUT=7200
+F5_UCS_DEVICE_DIR=/var/local/ucs
+F5_BACKUP_HOST_DIR=/home/mdoman/vaultis/f5-backups
+F5_BACKUP_ROOT=/app/data/backups/f5
+F5_WINDOWS_SCP_REMOTE_DIR=E:/NetConfig_Backup
+```
+
+| Variable | Rôle |
+|----------|------|
+| `F5_BACKUP_HOST_DIR` | Chemin **sur le serveur Linux** (bind mount Docker) |
+| `F5_BACKUP_ROOT` | Chemin **dans le conteneur** où Django écrit les `.ucs` (`/app/data/backups/f5`) |
+
+Si `F5_BACKUP_HOST_DIR` est vide : `{VAULTIS_HOST_DATA_DIR}/backups/f5` sur l'hôte.
+
+Sur la fiche équipement **F5** : host cible, identifiants par défaut (`.env`) ou **autres credentials**.
+
+**SCP Windows** : `F5_WINDOWS_SCP_*` ou repli `NITROKEY_WINDOWS_SCP_*`.  
+Destination : `{REMOTE}/F5/{nom équipement}/fichier.ucs`.
+
 ## Planification automatique
 
 Sur chaque **fiche équipement**, section **Planification automatique** :
@@ -248,7 +289,7 @@ Sur chaque **fiche équipement**, section **Planification automatique** :
 
 L’heure utilise le fuseau `DJANGO_TIME_ZONE` (ex. `UTC`).
 
-**Nitrokey** : les jobs planifiés utilisent uniquement les identifiants par défaut du `.env` (`NITROKEY_NETHSM_*`).
+**Nitrokey / F5** : les jobs planifiés utilisent uniquement les identifiants par défaut du `.env` (`NITROKEY_NETHSM_*` ou `F5_SSH_*`).
 
 **Docker** : le service `scheduler` exécute `run_backup_schedules` toutes les 60 s (configurable) :
 
@@ -310,6 +351,12 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 | `VAULTIS_HOST_DATA_DIR` | Dossier hôte monté sur `/app/data` |
 | `POSTGRES_HOST_DATA_DIR` | Dossier hôte pour les données PostgreSQL |
 | `WEB_PORT` | Port exposé Docker (défaut `8010`) |
+| `F5_SSH_USER` / `F5_SSH_PASSWORD` | Identifiants SSH par défaut (fiche F5) |
+| `F5_SSH_SAVE_TIMEOUT` | Timeout `tmsh save sys ucs` (défaut 7200 s) |
+| `F5_UCS_DEVICE_DIR` | Chemin UCS sur le F5 (défaut `/var/local/ucs`) |
+| `F5_BACKUP_HOST_DIR` | Dossier hôte des `.ucs` (bind mount) |
+| `F5_BACKUP_ROOT` | Chemin conteneur d’écriture (défaut `/app/data/backups/f5`) |
+| `F5_WINDOWS_SCP_REMOTE_DIR` | Dossier mère SCP Windows (repli `NITROKEY_WINDOWS_SCP_*`) |
 | `ARBOR_AED_ACTIVE_DCS` | DC à traiter, ex. `DC01` ou `DC01,DC02` |
 | `ARBOR_AED_SOURCE_HOST_DC01` / `_DC02` | Chemin hôte pour le bind mount Docker |
 | `ARBOR_AED_SOURCE_DIR_DC01` / `_DC02` | Dossiers incoming lus dans le conteneur (ex. `/app/arbor/incoming/dc01`) |

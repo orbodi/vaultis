@@ -5,7 +5,9 @@ from django.test import TestCase, override_settings
 
 from equipment.adapters.arbor_aed import Adapter as ArborAedAdapter
 from equipment.adapters.base import BackupAdapterError
+from equipment.adapters.f5 import Adapter as F5Adapter
 from equipment.adapters.nitrokey import Adapter as NitrokeyAdapter
+from equipment.f5_credentials import default_f5_credentials_configured
 from equipment.arbor_aed_config import (
     arbor_active_dcs,
     arbor_source_dir_for_dc,
@@ -592,3 +594,97 @@ class JobHistoryApiTests(TestCase):
         self.assertEqual(len(payload["jobs"]), 1)
         self.assertEqual(payload["jobs"][0]["trigger"], "scheduled")
         self.assertEqual(payload["jobs"][0]["message"], "OK planifié")
+
+
+class DefaultF5CredentialsTests(TestCase):
+    @override_settings(F5_SSH_USER="admin", F5_SSH_PASSWORD="secret")
+    def test_default_credentials_configured(self):
+        self.assertTrue(default_f5_credentials_configured())
+
+    @override_settings(F5_SSH_USER="", F5_SSH_PASSWORD="")
+    def test_default_credentials_missing(self):
+        self.assertFalse(default_f5_credentials_configured())
+
+
+class F5AdapterTests(TestCase):
+    def setUp(self):
+        self.eq_type, _ = EquipmentType.objects.get_or_create(
+            slug="f5-test",
+            defaults={
+                "name": "F5 test",
+                "adapter_key": "equipment.adapters.f5",
+            },
+        )
+        self.equipment = Equipment.objects.create(
+            name="F5 BIG-IP test",
+            equipment_type=self.eq_type,
+            extra={"integration": "demo"},
+        )
+        self.host = EquipmentHost.objects.create(
+            equipment=self.equipment,
+            label="F5 prod",
+            address="f5-mgmt.example.com",
+        )
+
+    @override_settings(DEBUG=True)
+    def test_demo_backup_message(self):
+        job = BackupJob.objects.create(
+            equipment=self.equipment,
+            equipment_host=self.host,
+        )
+        message = F5Adapter().run_backup(job)
+        self.assertIn("simulée", message.lower())
+        self.assertIn("f5-mgmt.example.com", message)
+
+    def test_ssh_requires_credentials(self):
+        self.equipment.extra = {"integration": "ssh"}
+        self.equipment.save(update_fields=["extra"])
+        job = BackupJob.objects.create(
+            equipment=self.equipment,
+            equipment_host=self.host,
+        )
+        with self.assertRaises(BackupAdapterError):
+            F5Adapter().run_backup(job)
+
+    @patch("equipment.adapters.f5._F5SSHSession")
+    @override_settings(
+        F5_SSH_USER="admin",
+        F5_SSH_PASSWORD="pass",
+    )
+    def test_ssh_saves_ucs_locally(self, mock_session_cls):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        mock_session = mock_session_cls.return_value
+        mock_session.__enter__.return_value = mock_session
+
+        with TemporaryDirectory() as backup_dir:
+            ucs_path = Path(backup_dir) / "dc01-ltm-20260610-174500.ucs"
+            ucs_path.write_bytes(b"ucs-data")
+            mock_session.run_backup.return_value = (ucs_path, ucs_path.name)
+
+            with override_settings(F5_BACKUP_ROOT=Path(backup_dir)):
+                self.equipment.extra = {"integration": "ssh"}
+                self.equipment.save(update_fields=["extra"])
+                job = BackupJob.objects.create(
+                    equipment=self.equipment,
+                    equipment_host=self.host,
+                )
+                message = F5Adapter().run_backup(job)
+
+        self.assertIn("UCS F5 enregistré", message)
+        self.assertIn("dc01-ltm-20260610-174500.ucs", message)
+        mock_session.run_backup.assert_called_once()
+
+
+class F5ConfigTests(TestCase):
+    @override_settings(TIME_ZONE="UTC")
+    def test_ucs_filename_format(self):
+        from equipment.f5_config import ucs_filename
+
+        name = ucs_filename("dc01-ltm")
+        self.assertTrue(name.endswith(".ucs"))
+        self.assertTrue(name.startswith("dc01-ltm-"))
+        parts = name.removesuffix(".ucs").split("-")
+        self.assertEqual(len(parts[-2]), 8)  # YYYYMMDD
+        self.assertEqual(len(parts[-1]), 6)  # HHMMSS

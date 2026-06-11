@@ -82,17 +82,17 @@
               <div class="app-meta-label mb-2">Authentification API</div>
               <input type="hidden" name="credentials_mode" value="default" class="js-credentials-mode">
               <p class="small text-muted mb-2 js-credentials-default-summary">
-                {% if has_default_nethsm_credentials %}
+                {% if has_default_api_credentials %}
                   Identifiants par défaut du serveur
-                  {% if default_nethsm_username %}
-                    (<span class="text-break">{{ default_nethsm_username }}</span>)
+                  {% if default_api_username %}
+                    (<span class="text-break">{{ default_api_username }}</span>)
                   {% endif %}
                   .
                 {% else %}
                   Aucun identifiant par défaut configuré dans le <code>.env</code> du serveur.
                 {% endif %}
               </p>
-              {% if has_default_nethsm_credentials %}
+              {% if has_default_api_credentials %}
                 <button
                   type="button"
                   class="btn btn-outline-secondary btn-sm js-toggle-custom-credentials"
@@ -101,10 +101,10 @@
                 </button>
               {% endif %}
               <div
-                class="js-custom-credentials mt-3{% if has_default_nethsm_credentials %} d-none{% endif %}"
-                {% if not has_default_nethsm_credentials %}data-force-visible="true"{% endif %}
+                class="js-custom-credentials mt-3{% if has_default_api_credentials %} d-none{% endif %}"
+                {% if not has_default_api_credentials %}data-force-visible="true"{% endif %}
               >
-                {% if has_default_nethsm_credentials %}
+                {% if has_default_api_credentials %}
                   <button
                     type="button"
                     class="btn btn-link btn-sm px-0 mb-2 js-toggle-custom-credentials-back"
@@ -170,7 +170,7 @@
           <p class="small text-muted mb-3">
             Fuseau horaire : <code>{{ django_timezone }}</code>.
             {% if requires_api_credentials %}
-              Les exécutions planifiées utilisent les identifiants NetHSM par défaut du serveur.
+              Les exécutions planifiées utilisent les identifiants API par défaut du serveur (.env).
             {% endif %}
           </p>
 

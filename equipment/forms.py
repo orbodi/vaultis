@@ -3,6 +3,7 @@ from __future__ import annotations
 from django import forms
 
 from .models import BackupSchedule, Equipment, EquipmentHost
+from .f5_credentials import default_f5_credentials_configured
 from .nethsm_credentials import default_nethsm_credentials_configured
 
 
@@ -64,12 +65,17 @@ class BackupScheduleForm(forms.ModelForm):
             if dom is None or dom < 1 or dom > 28:
                 self.add_error("day_of_month", "Jour du mois entre 1 et 28.")
 
-        if self.equipment.equipment_type.slug == "nitrokey":
-            if not default_nethsm_credentials_configured():
-                raise forms.ValidationError(
-                    "Les sauvegardes planifiées Nitrokey nécessitent les identifiants "
-                    "par défaut du serveur (NITROKEY_NETHSM_* dans .env)."
-                )
+        slug = self.equipment.equipment_type.slug
+        if slug == "nitrokey" and not default_nethsm_credentials_configured():
+            raise forms.ValidationError(
+                "Les sauvegardes planifiées Nitrokey nécessitent les identifiants "
+                "par défaut du serveur (NITROKEY_NETHSM_* dans .env)."
+            )
+        if slug == "f5" and not default_f5_credentials_configured():
+            raise forms.ValidationError(
+                "Les sauvegardes planifiées F5 nécessitent les identifiants "
+                "par défaut du serveur (F5_SSH_* dans .env)."
+            )
 
         if self.equipment.equipment_type.slug != "ddos":
             host_qs = self.fields["equipment_host"].queryset
