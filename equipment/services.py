@@ -63,7 +63,15 @@ def run_backup_job(job: BackupJob, *, credentials: dict | None = None) -> None:
         getattr(job.equipment_host, "address", ""),
     )
 
-    adapter = get_adapter(job.equipment.equipment_type.adapter_key)
+    adapter_key = (job.equipment.equipment_type.adapter_key or "").strip()
+    adapter = get_adapter(adapter_key)
+    logger.info(
+        "Backup adapter resolved job_id=%s slug=%s adapter_key=%r adapter=%s",
+        job.pk,
+        job.equipment.equipment_type.slug,
+        adapter_key,
+        type(adapter).__module__,
+    )
     try:
         job.message = adapter.run_backup(job)
         job.status = BackupJob.Status.SUCCESS

@@ -779,6 +779,24 @@ class F5HaTests(TestCase):
         self.assertEqual(active, "172.16.11.26")
 
 
+class StubAdapterTests(TestCase):
+    @override_settings(DEBUG=False)
+    def test_stub_fails_in_production_when_adapter_key_empty(self):
+        from equipment.adapters.stub import Adapter as StubAdapter
+
+        eq_type = EquipmentType.objects.create(slug="dns", name="DNS", adapter_key="")
+        equipment = Equipment.objects.create(name="F5 mal typé", equipment_type=eq_type)
+        host = EquipmentHost.objects.create(
+            equipment=equipment,
+            label="mgmt",
+            address="172.16.11.29",
+        )
+        job = BackupJob.objects.create(equipment=equipment, equipment_host=host)
+        with self.assertRaises(BackupAdapterError) as ctx:
+            StubAdapter().run_backup(job)
+        self.assertIn("adapter_key", str(ctx.exception).lower())
+
+
 class F5Dn1AdapterTests(TestCase):
     def setUp(self):
         self.eq_type, _ = EquipmentType.objects.get_or_create(
