@@ -799,6 +799,20 @@ class F5Dn1AdapterTests(TestCase):
             address="172.16.21.10",
         )
 
+    @override_settings(DEBUG=False, F5_INTEGRATION="", F5_SSH_USER="", F5_SSH_PASSWORD="")
+    def test_demo_blocked_in_production_without_credentials(self):
+        from equipment.adapters.f5_dn1 import Adapter as F5Dn1Adapter
+
+        self.equipment.extra = {}
+        self.equipment.save(update_fields=["extra"])
+        job = BackupJob.objects.create(
+            equipment=self.equipment,
+            equipment_host=self.host,
+        )
+        with self.assertRaises(BackupAdapterError) as ctx:
+            F5Dn1Adapter().run_backup(job)
+        self.assertIn("SSH", str(ctx.exception))
+
     @patch("equipment.adapters.f5_ssh_core.F5SSHSession")
     @override_settings(
         F5_SSH_USER="backup-apiuser",

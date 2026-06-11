@@ -120,6 +120,20 @@ def integration_mode(job: BackupJob, variant: F5Variant) -> str:
     return "demo"
 
 
+def raise_unless_demo_allowed() -> None:
+    """Bloque le faux succès démo en production (DEBUG=False)."""
+    from django.conf import settings
+
+    if settings.DEBUG:
+        return
+    raise BackupAdapterError(
+        "Sauvegarde F5 impossible : intégration SSH non configurée. "
+        "Définissez F5_INTEGRATION=ssh et F5_SSH_USER / F5_SSH_PASSWORD "
+        "(ou F5_SSH_USER_FILE / F5_SSH_PASSWORD_FILE sous /app/secrets) "
+        "dans .env, puis redémarrez les conteneurs web et scheduler."
+    )
+
+
 def ssh_port(variant: F5Variant) -> int:
     raw = _env_or_setting(*_variant_keys(variant, "SSH_PORT"), default="22")
     return int(raw or 22)

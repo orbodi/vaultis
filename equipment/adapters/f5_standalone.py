@@ -6,7 +6,12 @@ import logging
 from typing import TYPE_CHECKING
 
 from equipment.f5_config import normalize_mgmt_host
-from equipment.f5_variant import F5Variant, integration_mode, resolve_standalone_host
+from equipment.f5_variant import (
+    F5Variant,
+    integration_mode,
+    raise_unless_demo_allowed,
+    resolve_standalone_host,
+)
 
 from .f5_ssh_core import run_f5_ssh_backup
 from .messages import backup_success_message
@@ -36,5 +41,6 @@ class StandaloneF5Adapter:
             )
             return run_f5_ssh_backup(job, self.variant, address, label)
 
+        raise_unless_demo_allowed()
         target = f"{label} ({address})" if label != address else address
         return backup_success_message(target)

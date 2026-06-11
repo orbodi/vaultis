@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from equipment.f5_config import normalize_mgmt_host
 from equipment.f5_ha import ha_peer_addresses, resolve_active_mgmt_ip_for_job
-from equipment.f5_variant import F5, integration_mode
+from equipment.f5_variant import F5, integration_mode, raise_unless_demo_allowed
 
 from .base import BackupAdapterError
 from .f5_ssh_core import run_f5_ssh_backup
@@ -45,6 +45,7 @@ class Adapter:
         return self._run_demo("", peers[0])
 
     def _run_demo(self, label: str, address: str) -> str:
+        raise_unless_demo_allowed()
         target = address
         if label.strip():
             target = f"{label.strip()} ({address})"
