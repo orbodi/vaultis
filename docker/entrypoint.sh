@@ -1,17 +1,7 @@
 #!/bin/sh
 set -e
 
-BACKUP_ROOT="${NITROKEY_BACKUP_ROOT:-/app/data/backups/nitrokey}"
-mkdir -p "${BACKUP_ROOT}"
-
-# Fail fast with a clear message when bind-mount permissions are wrong.
-perm_probe="${BACKUP_ROOT}/.vaultis_write_test"
-if ! ( : > "${perm_probe}" ) 2>/dev/null; then
-  echo "ERREUR: écriture impossible dans ${BACKUP_ROOT} (permissions du dossier hôte)." >&2
-  echo "Corriger les droits sur le dossier bind mount (chown/chmod) puis relancer." >&2
-  exit 1
-fi
-rm -f "${perm_probe}"
+. /app/docker/check-backup-dirs.sh
 
 if [ -n "${DATABASE_URL}${POSTGRES_HOST}" ]; then
   echo "Attente de PostgreSQL…"

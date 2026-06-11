@@ -659,7 +659,7 @@ class F5AdapterTests(TestCase):
         mock_session.__enter__.return_value = mock_session
 
         with TemporaryDirectory() as backup_dir:
-            ucs_path = Path(backup_dir) / "dc01-ltm-20260610-174500.ucs"
+            ucs_path = Path(backup_dir) / "f5-dc01-ltm-20260610-174500.ucs"
             ucs_path.write_bytes(b"ucs-data")
             mock_session.run_backup.return_value = (ucs_path, ucs_path.name)
 
@@ -673,7 +673,7 @@ class F5AdapterTests(TestCase):
                 message = F5Adapter().run_backup(job)
 
         self.assertIn("UCS F5 enregistré", message)
-        self.assertIn("dc01-ltm-20260610-174500.ucs", message)
+        self.assertIn("f5-dc01-ltm-20260610-174500.ucs", message)
         mock_session.run_backup.assert_called_once()
 
 
@@ -684,7 +684,20 @@ class F5ConfigTests(TestCase):
 
         name = ucs_filename("dc01-ltm")
         self.assertTrue(name.endswith(".ucs"))
-        self.assertTrue(name.startswith("dc01-ltm-"))
+        self.assertTrue(name.startswith("f5-dc01-ltm-"))
         parts = name.removesuffix(".ucs").split("-")
         self.assertEqual(len(parts[-2]), 8)  # YYYYMMDD
         self.assertEqual(len(parts[-1]), 6)  # HHMMSS
+
+    def test_windows_remote_path_with_date(self):
+        from equipment.f5_config import windows_remote_path
+
+        path = windows_remote_path(
+            {"remote_parent": "E:/NetConfig_Backup/DC01/F5"},
+            "2026-06-10",
+            "f5-dc01-ltm-20260610-174500.ucs",
+        )
+        self.assertEqual(
+            path,
+            "E:/NetConfig_Backup/DC01/F5/2026-06-10/f5-dc01-ltm-20260610-174500.ucs",
+        )

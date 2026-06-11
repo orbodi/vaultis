@@ -248,8 +248,8 @@ Lancer depuis la fiche équipement type **Arbor AED** (bouton « Lancer une sauv
 4. `tmsh delete sys ucs <nom>` sur le F5
 5. SCP optionnel vers la VM Windows
 
-Nom du fichier : `<hostname-court>-<YYYYMMDD-HHMMSS>.ucs`  
-(ex. `dc01-ltm-20260610-174500.ucs` — hostname lu via `tmsh list sys global hostname`).
+Nom du fichier : `f5-<hostname-court>-<YYYYMMDD-HHMMSS>.ucs`  
+(ex. `f5-dc01-ltm-20260610-174500.ucs` — hostname lu via `tmsh list sys global hostname`).
 
 ### Configuration
 
@@ -262,7 +262,7 @@ F5_SSH_SAVE_TIMEOUT=7200
 F5_UCS_DEVICE_DIR=/var/local/ucs
 F5_BACKUP_HOST_DIR=/home/mdoman/vaultis/f5-backups
 F5_BACKUP_ROOT=/app/data/backups/f5
-F5_WINDOWS_SCP_REMOTE_DIR=E:/NetConfig_Backup
+F5_WINDOWS_SCP_REMOTE_DIR=E:/NetConfig_Backup/DC01/F5
 ```
 
 | Variable | Rôle |
@@ -275,7 +275,8 @@ Si `F5_BACKUP_HOST_DIR` est vide : `{VAULTIS_HOST_DATA_DIR}/backups/f5` sur l'h�
 Sur la fiche équipement **F5** : host cible, identifiants par défaut (`.env`) ou **autres credentials**.
 
 **SCP Windows** : `F5_WINDOWS_SCP_*` ou repli `NITROKEY_WINDOWS_SCP_*`.  
-Destination : `{REMOTE}/F5/{nom équipement}/fichier.ucs`.
+Destination : `{F5_WINDOWS_SCP_REMOTE_DIR}/{YYYY-MM-DD}/f5-{host}-{horodatage}.ucs`  
+(ex. `E:/NetConfig_Backup/DC01/F5/2026-06-10/f5-dc01-ltm-20260610-174500.ucs`).
 
 ## Planification automatique
 

@@ -98,13 +98,19 @@ def backup_root() -> Path:
     return Path(root)
 
 
+def backup_folder_date() -> str:
+    """Dossier date Windows : YYYY-MM-DD."""
+    tz = ZoneInfo(settings.TIME_ZONE)
+    return dj_timezone.localtime(dj_timezone.now(), timezone=tz).strftime("%Y-%m-%d")
+
+
 def ucs_filename(short_hostname: str) -> str:
-    """Ex. dc01-ltm-20260610-174500.ucs"""
+    """Ex. f5-dc01-ltm-20260610-174500.ucs"""
     tz = ZoneInfo(settings.TIME_ZONE)
     stamp = dj_timezone.localtime(dj_timezone.now(), timezone=tz).strftime("%Y%m%d-%H%M%S")
     safe = re.sub(r"[^a-zA-Z0-9_-]", "-", short_hostname.strip().lower())
-    safe = re.sub(r"-+", "-", safe).strip("-")[:40] or "f5"
-    return f"{safe}-{stamp}.ucs"
+    safe = re.sub(r"-+", "-", safe).strip("-")[:40] or "host"
+    return f"f5-{safe}-{stamp}.ucs"
 
 
 def normalize_mgmt_host(address: str) -> str:
@@ -164,11 +170,14 @@ def windows_scp_config() -> dict | None:
     }
 
 
-def windows_remote_path(config: dict, equipment_name: str, filename: str) -> str:
+def windows_remote_path(config: dict, folder_date: str, filename: str) -> str:
+    """
+    Chemin SCP Windows : {F5_WINDOWS_SCP_REMOTE_DIR}/{date}/{fichier}.ucs
+    Ex. E:/NetConfig_Backup/DC01/F5/2026-06-10/f5-dc01-ltm-20260610-174500.ucs
+    """
     import posixpath
 
     parent = config["remote_parent"]
-    safe_eq = equipment_name.replace("\\", "_").replace("/", "_")[:80]
     if parent:
-        return posixpath.join(parent, "F5", safe_eq, filename)
-    return posixpath.join("F5", safe_eq, filename)
+        return posixpath.join(parent, folder_date, filename)
+    return posixpath.join(folder_date, filename)

@@ -25,6 +25,8 @@ except Exception:
   done
 fi
 
+. /app/docker/check-backup-dirs.sh
+
 echo "Planificateur — migrations Django…"
 python manage.py migrate --noinput
 

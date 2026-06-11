@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from equipment.f5_config import (
+    backup_folder_date,
     backup_root,
     integration_mode,
     normalize_mgmt_host,
@@ -223,7 +224,7 @@ class Adapter:
         transferred = False
         remote_win = ""
         if win_scp is not None:
-            remote_win = windows_remote_path(win_scp, job.equipment.name, ucs_name)
+            remote_win = windows_remote_path(win_scp, backup_folder_date(), ucs_name)
             try:
                 _upload_to_windows(win_scp, remote_win, local_path)
                 transferred = True
