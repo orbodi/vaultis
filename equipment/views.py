@@ -9,7 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .forms import BackupScheduleForm
 from .job_history import jobs_history_payload
 from .models import BackupJob, BackupSchedule, Equipment, EquipmentHost
-from .f5_credentials import default_f5_credentials_configured
+from .f5_credentials import default_f5_credentials_configured, env_f5_user_password
 from .nethsm_credentials import default_nethsm_credentials_configured
 from .scheduler import compute_next_run, schedule_summary
 from .services import run_backup_job
@@ -55,7 +55,7 @@ def equipment_detail(request, pk: int):
         default_api_username = getattr(settings, "NITROKEY_NETHSM_USER", "") if has_default_credentials else ""
     elif is_f5:
         has_default_credentials = default_f5_credentials_configured()
-        default_api_username = getattr(settings, "F5_SSH_USER", "") if has_default_credentials else ""
+        default_api_username = env_f5_user_password()[0] if has_default_credentials else ""
     else:
         has_default_credentials = False
         default_api_username = ""
@@ -68,7 +68,7 @@ def equipment_detail(request, pk: int):
         {
             "equipment": equipment,
             "jobs": jobs,
-            "requires_host_selection": not is_arbor_aed,
+            "requires_host_selection": slug not in ("ddos", "f5"),
             "requires_api_credentials": requires_api_credentials,
             "is_arbor_aed": is_arbor_aed,
             "is_f5": is_f5,
@@ -89,7 +89,16 @@ def equipment_detail(request, pk: int):
 def equipment_backup(request, pk: int):
     equipment = get_object_or_404(Equipment, pk=pk)
     equipment_host = None
-    if equipment.equipment_type.slug != "ddos":
+    slug = equipment.equipment_type.slug
+    if slug == "f5":
+        host_qs = EquipmentHost.objects.filter(equipment=equipment)
+        if not host_qs.exists():
+            messages.error(
+                request,
+                "Aucun nœud de cluster F5 configuré (administration → hosts de management).",
+            )
+            return redirect("equipment_detail", pk=equipment.pk)
+    elif slug != "ddos":
         host_qs = EquipmentHost.objects.filter(equipment=equipment).order_by(
             "sort_order",
             "pk",
@@ -104,7 +113,6 @@ def equipment_backup(request, pk: int):
         equipment_host = get_object_or_404(host_qs, pk=int(raw_host_id))
 
     credentials = None
-    slug = equipment.equipment_type.slug
     if slug in ("nitrokey", "f5"):
         credentials_mode = request.POST.get("credentials_mode", "default").strip().lower()
         if credentials_mode == "custom":

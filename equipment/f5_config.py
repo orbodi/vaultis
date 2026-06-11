@@ -30,31 +30,39 @@ def credentials_from_job(job: BackupJob) -> tuple[str, str] | None:
     return None
 
 
-def ssh_credentials(job: BackupJob) -> tuple[str, str, str]:
+def f5_credentials(job: BackupJob) -> tuple[str, str, str]:
+    """Identifiants F5 — même couple pour l'API HA (iControl) et le SSH."""
     from_form = credentials_from_job(job)
     if from_form:
         return from_form[0], from_form[1], "form"
 
     extra = _equipment_extra(job)
-    if extra.get("ssh_user") and extra.get("ssh_password"):
-        return (
-            str(extra["ssh_user"]).strip(),
-            str(extra["ssh_password"]),
-            "extra",
-        )
-    # Rétrocompat iControl → SSH
-    if extra.get("icontrol_user") and extra.get("icontrol_password"):
-        return (
-            str(extra["icontrol_user"]).strip(),
-            str(extra["icontrol_password"]),
-            "extra",
-        )
+    for user_key, pass_key in (
+        ("ssh_user", "ssh_password"),
+        ("api_user", "api_password"),
+        ("icontrol_user", "icontrol_password"),
+    ):
+        if extra.get(user_key) and extra.get(pass_key):
+            return (
+                str(extra[user_key]).strip(),
+                str(extra[pass_key]),
+                "extra",
+            )
 
-    user = (getattr(settings, "F5_SSH_USER", "") or "").strip()
-    password = getattr(settings, "F5_SSH_PASSWORD", "") or ""
+    from .f5_credentials import env_f5_user_password
+
+    user, password = env_f5_user_password()
     if not user or not password:
-        raise BackupAdapterError("Identifiants SSH F5 requis.")
+        raise BackupAdapterError("Identifiants F5 requis.")
     return user, password, "env"
+
+
+def api_credentials(job: BackupJob) -> tuple[str, str, str]:
+    return f5_credentials(job)
+
+
+def ssh_credentials(job: BackupJob) -> tuple[str, str, str]:
+    return f5_credentials(job)
 
 
 def integration_mode(job: BackupJob) -> str:
@@ -73,7 +81,10 @@ def integration_mode(job: BackupJob) -> str:
         return "ssh"
     if extra.get("icontrol_user") and extra.get("icontrol_password"):
         return "ssh"
-    if getattr(settings, "F5_SSH_USER", "") and getattr(settings, "F5_SSH_PASSWORD", ""):
+    from .f5_credentials import env_f5_user_password
+
+    user, password = env_f5_user_password()
+    if user and password:
         return "ssh"
     return "demo"
 

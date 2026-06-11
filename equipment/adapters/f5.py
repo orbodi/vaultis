@@ -18,9 +18,9 @@ from typing import TYPE_CHECKING
 from equipment.f5_config import (
     backup_folder_date,
     backup_root,
+    f5_credentials,
     integration_mode,
     normalize_mgmt_host,
-    ssh_credentials,
     ssh_port,
     ssh_save_timeout,
     ucs_device_dir,
@@ -28,6 +28,7 @@ from equipment.f5_config import (
     windows_remote_path,
     windows_scp_config,
 )
+from equipment.f5_ha import ha_peer_addresses, resolve_active_mgmt_ip_for_job
 
 from .base import BackupAdapterError
 from .messages import backup_success_message
@@ -183,15 +184,23 @@ class _F5SSHSession:
         return local_path, ucs_name
 
 
+def _attach_resolved_host(job: BackupJob, active_ip: str) -> str:
+    """Associe le job au host admin correspondant, retourne un libellé pour les logs."""
+    for host in job.equipment.hosts.order_by("sort_order", "pk"):
+        if normalize_mgmt_host(host.address) == active_ip:
+            job.equipment_host = host
+            job.save(update_fields=["equipment_host"])
+            return host.label.strip() or active_ip
+    return active_ip
+
+
 class Adapter:
     def run_backup(self, job: BackupJob) -> str:
-        if not job.equipment_host_id:
-            raise BackupAdapterError("Host cible manquant.")
-        host = job.equipment_host
         mode = integration_mode(job)
         if mode == "ssh":
-            return self._run_ssh(job, host)
-        return self._run_demo(host.label, host.address)
+            return self._run_ssh(job)
+        peers = ha_peer_addresses(job)
+        return self._run_demo("", peers[0])
 
     def _run_demo(self, label: str, address: str) -> str:
         target = address
@@ -199,24 +208,25 @@ class Adapter:
             target = f"{label.strip()} ({address})"
         return backup_success_message(target)
 
-    def _run_ssh(self, job: BackupJob, equipment_host) -> str:
-        user, password, cred_source = ssh_credentials(job)
-        mgmt_host = normalize_mgmt_host(equipment_host.address)
+    def _run_ssh(self, job: BackupJob) -> str:
+        user, password, cred_source = f5_credentials(job)
+        active_ip = resolve_active_mgmt_ip_for_job(job, user, password)
+        host_label = _attach_resolved_host(job, active_ip)
         root = backup_root()
         root.mkdir(parents=True, exist_ok=True)
 
         logger.info(
-            "F5 backup SSH start host=%s user=%s cred_source=%s port=%s",
-            mgmt_host,
+            "F5 backup SSH start active=%s user=%s cred_source=%s port=%s",
+            active_ip,
             user,
             cred_source,
             ssh_port(),
         )
 
-        with _F5SSHSession(mgmt_host, user, password, port=ssh_port()) as session:
+        with _F5SSHSession(active_ip, user, password, port=ssh_port()) as session:
             local_path, ucs_name = session.run_backup(
-                host_label=equipment_host.label,
-                host_address=equipment_host.address,
+                host_label=host_label,
+                host_address=active_ip,
                 local_dir=root,
             )
 

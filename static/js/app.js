@@ -365,6 +365,9 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!hostSelect && arborDcs) {
         lines.push("DC actifs : " + arborDcs);
       }
+      if (!hostSelect && form.getAttribute("data-f5-ha")) {
+        lines.push("Membre actif : détection automatique (cluster HA)");
+      }
       summaryEl.textContent = lines.join(" — ");
     }
 

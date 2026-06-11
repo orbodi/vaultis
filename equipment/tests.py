@@ -597,13 +597,22 @@ class JobHistoryApiTests(TestCase):
 
 
 class DefaultF5CredentialsTests(TestCase):
-    @override_settings(F5_SSH_USER="admin", F5_SSH_PASSWORD="secret")
+    @override_settings(F5_SSH_USER="backup-apiuser", F5_SSH_PASSWORD="secret")
     def test_default_credentials_configured(self):
         self.assertTrue(default_f5_credentials_configured())
 
     @override_settings(F5_SSH_USER="", F5_SSH_PASSWORD="")
     def test_default_credentials_missing(self):
         self.assertFalse(default_f5_credentials_configured())
+
+    @override_settings(
+        F5_SSH_USER="",
+        F5_SSH_PASSWORD="",
+        F5_API_USER="backup-apiuser",
+        F5_API_PASSWORD="secret",
+    )
+    def test_default_credentials_api_alias(self):
+        self.assertTrue(default_f5_credentials_configured())
 
 
 class F5AdapterTests(TestCase):
@@ -646,12 +655,13 @@ class F5AdapterTests(TestCase):
         with self.assertRaises(BackupAdapterError):
             F5Adapter().run_backup(job)
 
-    @patch("equipment.adapters.f5._F5SSHSession")
-    @override_settings(
-        F5_SSH_USER="admin",
-        F5_SSH_PASSWORD="pass",
+    @patch(
+        "equipment.adapters.f5.resolve_active_mgmt_ip_for_job",
+        return_value="172.16.11.26",
     )
-    def test_ssh_saves_ucs_locally(self, mock_session_cls):
+    @patch("equipment.adapters.f5._F5SSHSession")
+    @override_settings(F5_SSH_USER="backup-apiuser", F5_SSH_PASSWORD="pass")
+    def test_ssh_saves_ucs_locally(self, mock_session_cls, _mock_active):
         from pathlib import Path
         from tempfile import TemporaryDirectory
 
@@ -701,3 +711,69 @@ class F5ConfigTests(TestCase):
             path,
             "E:/NetConfig_Backup/DC01/F5/2026-06-10/f5-dc01-ltm-20260610-174500.ucs",
         )
+
+
+class F5HaTests(TestCase):
+    def setUp(self):
+        self.eq_type, _ = EquipmentType.objects.get_or_create(
+            slug="f5-ha-test",
+            defaults={
+                "name": "F5 HA test",
+                "adapter_key": "equipment.adapters.f5",
+            },
+        )
+        self.equipment = Equipment.objects.create(
+            name="F5 HA pair",
+            equipment_type=self.eq_type,
+        )
+        EquipmentHost.objects.create(
+            equipment=self.equipment,
+            label="Node A",
+            address="172.16.11.26",
+            sort_order=0,
+        )
+        EquipmentHost.objects.create(
+            equipment=self.equipment,
+            label="Node B",
+            address="172.16.11.27",
+            sort_order=1,
+        )
+
+    def test_ha_peer_addresses_from_hosts(self):
+        from equipment.f5_ha import ha_peer_addresses
+
+        job = BackupJob.objects.create(equipment=self.equipment)
+        self.assertEqual(
+            ha_peer_addresses(job),
+            ["172.16.11.26", "172.16.11.27"],
+        )
+
+    @patch("equipment.f5_ha.urlopen")
+    def test_resolve_active_mgmt_ip(self, mock_urlopen):
+        import json
+        from io import BytesIO
+        from equipment.f5_ha import resolve_active_mgmt_ip
+
+        payload = {
+            "items": [
+                {
+                    "failoverState": "standby",
+                    "managementIp": "172.16.11.27",
+                },
+                {
+                    "failoverState": "active",
+                    "managementIp": "172.16.11.26",
+                },
+            ]
+        }
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = (
+            json.dumps(payload).encode()
+        )
+
+        active = resolve_active_mgmt_ip(
+            ["172.16.11.26"],
+            "backup-apiuser",
+            "secret",
+            verify_tls=False,
+        )
+        self.assertEqual(active, "172.16.11.26")

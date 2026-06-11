@@ -240,13 +240,16 @@ Lancer depuis la fiche équipement type **Arbor AED** (bouton « Lancer une sauv
 
 ## F5 BIG-IP
 
-### Processus (SSH)
+### Processus (HA + SSH)
 
-1. Connexion SSH au host de management sélectionné
-2. `tmsh save sys ucs <nom>` — attente fin de génération
-3. SFTP : `/var/local/ucs/<nom>.ucs` → `F5_BACKUP_ROOT` (bind mount Docker)
-4. `tmsh delete sys ucs <nom>` sur le F5
-5. SCP optionnel vers la VM Windows
+1. API iControl : `GET /mgmt/tm/cm/device` — sélection du membre `failoverState=active`
+2. Connexion SSH sur l'IP de management active
+3. `tmsh save sys ucs <nom>` — attente fin de génération
+4. SFTP : `/var/local/ucs/<nom>.ucs` → `F5_BACKUP_ROOT` (bind mount Docker)
+5. `tmsh delete sys ucs <nom>` sur le F5
+6. SCP optionnel vers la VM Windows
+
+Les nœuds du cluster (ex. `172.16.11.26`, `172.16.11.27`) se configurent dans l'**administration** (hosts de management). Aucun choix de host sur la fiche équipement.
 
 Nom du fichier : `f5-<hostname-court>-<YYYYMMDD-HHMMSS>.ucs`  
 (ex. `f5-dc01-ltm-20260610-174500.ucs` — hostname lu via `tmsh list sys global hostname`).
@@ -255,8 +258,9 @@ Nom du fichier : `f5-<hostname-court>-<YYYYMMDD-HHMMSS>.ucs`
 
 ```env
 F5_INTEGRATION=ssh
-F5_SSH_USER=admin
+F5_SSH_USER=backup-apiuser
 F5_SSH_PASSWORD=...
+F5_API_VERIFY_TLS=false
 F5_SSH_PORT=22
 F5_SSH_SAVE_TIMEOUT=7200
 F5_UCS_DEVICE_DIR=/var/local/ucs
@@ -272,7 +276,7 @@ F5_WINDOWS_SCP_REMOTE_DIR=E:/NetConfig_Backup/DC01/F5
 
 Si `F5_BACKUP_HOST_DIR` est vide : `{VAULTIS_HOST_DATA_DIR}/backups/f5` sur l'hôte.
 
-Sur la fiche équipement **F5** : host cible, identifiants par défaut (`.env`) ou **autres credentials**.
+Sur la fiche équipement **F5** : identifiants par défaut (`.env`) ou **autres credentials** — un seul couple user/password pour l'API HA et le SSH (`F5_SSH_*` ou `F5_API_*`).
 
 **SCP Windows** : `F5_WINDOWS_SCP_*` ou repli `NITROKEY_WINDOWS_SCP_*`.  
 Destination : `{F5_WINDOWS_SCP_REMOTE_DIR}/{YYYY-MM-DD}/f5-{host}-{horodatage}.ucs`  
@@ -290,7 +294,7 @@ Sur chaque **fiche équipement**, section **Planification automatique** :
 
 L’heure utilise le fuseau `DJANGO_TIME_ZONE` (ex. `UTC`).
 
-**Nitrokey / F5** : les jobs planifiés utilisent uniquement les identifiants par défaut du `.env` (`NITROKEY_NETHSM_*` ou `F5_SSH_*`).
+**Nitrokey / F5** : les jobs planifiés utilisent uniquement les identifiants par défaut du `.env` (`NITROKEY_NETHSM_*` ou `F5_SSH_*` / `F5_API_*`).
 
 **Docker** : le service `scheduler` exécute `run_backup_schedules` toutes les 60 s (configurable) :
 
@@ -352,7 +356,8 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 | `VAULTIS_HOST_DATA_DIR` | Dossier hôte monté sur `/app/data` |
 | `POSTGRES_HOST_DATA_DIR` | Dossier hôte pour les données PostgreSQL |
 | `WEB_PORT` | Port exposé Docker (défaut `8010`) |
-| `F5_SSH_USER` / `F5_SSH_PASSWORD` | Identifiants SSH par défaut (fiche F5) |
+| `F5_SSH_USER` / `F5_SSH_PASSWORD` | Identifiants F5 (API HA + SSH) — alias `F5_API_*` |
+| `F5_API_VERIFY_TLS` | `false` par défaut (`curl -k`) |
 | `F5_SSH_SAVE_TIMEOUT` | Timeout `tmsh save sys ucs` (défaut 7200 s) |
 | `F5_UCS_DEVICE_DIR` | Chemin UCS sur le F5 (défaut `/var/local/ucs`) |
 | `F5_BACKUP_HOST_DIR` | Dossier hôte des `.ucs` (bind mount) |

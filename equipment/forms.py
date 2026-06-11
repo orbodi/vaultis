@@ -43,7 +43,7 @@ class BackupScheduleForm(forms.ModelForm):
         self.fields["equipment_host"].empty_label = "Premier host disponible"
 
         slug = equipment.equipment_type.slug
-        if slug == "ddos":
+        if slug in ("ddos", "f5"):
             self.fields["equipment_host"].widget = forms.HiddenInput()
         elif not host_qs.exists():
             self.fields["equipment_host"].widget = forms.HiddenInput()
@@ -74,11 +74,16 @@ class BackupScheduleForm(forms.ModelForm):
         if slug == "f5" and not default_f5_credentials_configured():
             raise forms.ValidationError(
                 "Les sauvegardes planifiées F5 nécessitent les identifiants "
-                "par défaut du serveur (F5_SSH_* dans .env)."
+                "par défaut du serveur (F5_SSH_* ou F5_API_* dans .env)."
             )
 
-        if self.equipment.equipment_type.slug != "ddos":
-            host_qs = self.fields["equipment_host"].queryset
+        host_qs = self.fields["equipment_host"].queryset
+        if slug == "f5":
+            if not host_qs.exists():
+                raise forms.ValidationError(
+                    "Configurez au moins un nœud du cluster F5 dans l'administration."
+                )
+        elif slug != "ddos":
             if not host_qs.exists():
                 raise forms.ValidationError("Aucun host configuré pour cet équipement.")
             if host_qs.count() > 1 and not cleaned.get("equipment_host"):

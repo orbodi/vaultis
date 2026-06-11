@@ -76,7 +76,7 @@ def schedule_summary(schedule: BackupSchedule) -> str:
 def resolve_schedule_host(schedule: BackupSchedule):
     """Host à utiliser pour une exécution planifiée."""
     equipment = schedule.equipment
-    if equipment.equipment_type.slug == "ddos":
+    if equipment.equipment_type.slug in ("ddos", "f5"):
         return None
     if schedule.equipment_host_id:
         return schedule.equipment_host
@@ -97,10 +97,12 @@ def validate_schedule_runnable(schedule: BackupSchedule) -> str | None:
         )
     if slug == "f5" and not default_f5_credentials_configured():
         return (
-            "Identifiants SSH F5 par défaut non configurés (.env) — "
+            "Identifiants F5 par défaut non configurés (.env : F5_SSH_* ou F5_API_*) — "
             "requis pour les sauvegardes planifiées."
         )
-    if slug != "ddos":
+    if slug == "f5" and not equipment.hosts.exists():
+        return "Aucun nœud de cluster F5 configuré dans l'administration."
+    if slug not in ("ddos", "f5"):
         host = resolve_schedule_host(schedule)
         if host is None:
             return "Aucun host configuré ou sélectionné pour la planification."

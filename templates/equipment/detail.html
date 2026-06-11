@@ -34,6 +34,19 @@
             — répertoires source et distant configurés dans le <code>.env</code>.
           </div>
         {% endif %}
+        {% if is_f5 %}
+          <div class="alert alert-secondary py-2 px-3 small mb-4" role="status">
+            Cluster HA : le membre <strong>actif</strong> est détecté automatiquement via l'API iControl
+            (<code>/mgmt/tm/cm/device</code>) avant chaque sauvegarde SSH.
+            Configurez les IPs de management des nœuds dans l'administration
+            {% if host_list|length == 0 %}
+              <span class="text-danger">(aucun nœud configuré)</span>
+            {% else %}
+              ({{ host_list|length }} nœud{{ host_list|length|pluralize }})
+            {% endif %}
+            — identifiants <code>F5_SSH_*</code> (ou <code>F5_API_*</code>, même couple) dans le <code>.env</code>.
+          </div>
+        {% endif %}
         <hr class="my-4 opacity-25">
         <form
           method="post"
@@ -42,6 +55,7 @@
           id="backup-form"
           novalidate
           {% if is_arbor_aed %}data-arbor-dcs="{{ arbor_active_dcs_display }}"{% endif %}
+          {% if is_f5 %}data-f5-ha="1"{% endif %}
         >
           {% csrf_token %}
           <div class="alert alert-danger py-2 px-3 small mb-3 d-none js-backup-form-errors" role="alert"></div>
@@ -151,7 +165,7 @@
           <button
             type="button"
             class="btn btn-primary app-btn-accent w-100 js-backup-open"
-            {% if requires_host_selection and host_list|length == 0 %}disabled{% endif %}
+            {% if not is_arbor_aed and host_list|length == 0 %}disabled{% endif %}
           >
             Lancer une sauvegarde
           </button>

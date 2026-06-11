@@ -265,6 +265,22 @@ if _f5_ssh_password_file:
     F5_SSH_PASSWORD = Path(_f5_ssh_password_file).read_text(encoding="utf-8").strip("\r\n")
 else:
     F5_SSH_PASSWORD = _f5_ssh_password
+_f5_api_user_file = os.environ.get("F5_API_USER_FILE", "").strip()
+if _f5_api_user_file:
+    F5_API_USER = Path(_f5_api_user_file).read_text(encoding="utf-8").strip("\r\n")
+else:
+    F5_API_USER = os.environ.get("F5_API_USER", "").strip()
+_f5_api_password_file = os.environ.get("F5_API_PASSWORD_FILE", "").strip()
+_f5_api_password = os.environ.get("F5_API_PASSWORD", "")
+if _f5_api_password_file:
+    F5_API_PASSWORD = Path(_f5_api_password_file).read_text(encoding="utf-8").strip("\r\n")
+else:
+    F5_API_PASSWORD = _f5_api_password
+F5_API_VERIFY_TLS = os.environ.get("F5_API_VERIFY_TLS", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 F5_SSH_PORT = int(os.environ.get("F5_SSH_PORT", "22") or "22")
 F5_SSH_SAVE_TIMEOUT = int(os.environ.get("F5_SSH_SAVE_TIMEOUT", "7200") or "7200")
 F5_UCS_DEVICE_DIR = os.environ.get("F5_UCS_DEVICE_DIR", "/var/local/ucs").strip() or "/var/local/ucs"
