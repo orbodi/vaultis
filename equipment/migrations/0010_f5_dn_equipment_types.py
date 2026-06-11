@@ -1,6 +1,6 @@
 # Types F5-DN1 / F5-DN2 (standalone, sans HA)
 
-from django.db import migrations
+from django.db import IntegrityError, migrations
 
 
 def seed_f5_dn_types(apps, schema_editor):
@@ -20,7 +20,17 @@ def seed_f5_dn_types(apps, schema_editor):
         },
     ]
     for row in rows:
-        EquipmentType.objects.update_or_create(slug=row["slug"], defaults=row)
+        slug = row["slug"]
+        fields = {key: value for key, value in row.items() if key != "slug"}
+        existing = EquipmentType.objects.filter(slug=slug).first()
+        if existing is not None:
+            EquipmentType.objects.filter(pk=existing.pk).update(**fields)
+            continue
+        try:
+            EquipmentType.objects.create(slug=slug, **fields)
+        except IntegrityError:
+            # web + scheduler peuvent lancer migrate en parallèle au démarrage
+            EquipmentType.objects.filter(slug=slug).update(**fields)
 
 
 def unseed_f5_dn_types(apps, schema_editor):

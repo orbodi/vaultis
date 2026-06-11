@@ -239,6 +239,13 @@ def run_f5_ssh_backup(
     win_scp = windows_scp_config(variant)
     transferred = False
     remote_win = ""
+    if win_scp is None:
+        logger.info(
+            "%s transfert SCP Windows ignoré (F5_%s_WINDOWS_SCP_* ou repli "
+            "F5_WINDOWS_SCP_* / NITROKEY_WINDOWS_SCP_* non configuré).",
+            variant.label,
+            variant.env_prefix or "HA",
+        )
     if win_scp is not None:
         remote_win = windows_remote_path(win_scp, backup_folder_date(), ucs_name)
         try:

@@ -829,3 +829,92 @@ class F5Dn1AdapterTests(TestCase):
         self.assertIn("F5-DN1", message)
         mock_session_cls.assert_called_once()
         self.assertEqual(mock_session_cls.call_args.args[0], "172.16.21.10")
+
+    @patch("equipment.adapters.f5_ssh_core._upload_to_windows")
+    @patch("equipment.adapters.f5_ssh_core.F5SSHSession")
+    @override_settings(
+        F5_SSH_USER="backup-apiuser",
+        F5_SSH_PASSWORD="pass",
+        F5_WINDOWS_SCP_HOST="win-vm.example.com",
+        F5_WINDOWS_SCP_USERNAME="scpuser",
+        F5_WINDOWS_SCP_PASSWORD="scppass",
+        F5_DN1_WINDOWS_SCP_REMOTE_DIR="E:/NetConfig_Backup/DC01/F5-DN1",
+    )
+    def test_dn1_transfers_ucs_to_windows(self, mock_session_cls, mock_upload):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from equipment.adapters.f5_dn1 import Adapter as F5Dn1Adapter
+
+        mock_session = mock_session_cls.return_value
+        mock_session.__enter__.return_value = mock_session
+
+        with TemporaryDirectory() as backup_dir:
+            ucs_name = "f5-dn1-host-20260611-120000.ucs"
+            ucs_path = Path(backup_dir) / ucs_name
+            ucs_path.write_bytes(b"ucs-data")
+            mock_session.run_backup.return_value = (ucs_path, ucs_name)
+
+            with override_settings(F5_DN1_BACKUP_ROOT=Path(backup_dir)):
+                job = BackupJob.objects.create(
+                    equipment=self.equipment,
+                    equipment_host=self.host,
+                )
+                message = F5Dn1Adapter().run_backup(job)
+
+        self.assertIn("transféré", message)
+        self.assertIn("F5-DN1", message)
+        mock_upload.assert_called_once()
+        remote_path = mock_upload.call_args.args[1]
+        self.assertTrue(
+            remote_path.startswith("E:/NetConfig_Backup/DC01/F5-DN1/"),
+            remote_path,
+        )
+        self.assertTrue(remote_path.endswith(ucs_name))
+
+
+class F5DnWindowsScpTests(TestCase):
+    @override_settings(
+        F5_WINDOWS_SCP_HOST="win-vm.example.com",
+        F5_WINDOWS_SCP_USERNAME="scpuser",
+        F5_WINDOWS_SCP_PASSWORD="secret",
+        F5_WINDOWS_SCP_REMOTE_DIR="E:/NetConfig_Backup/DC01/F5",
+        F5_DN1_WINDOWS_SCP_REMOTE_DIR="E:/NetConfig_Backup/DC01/F5-DN1",
+        F5_DN2_WINDOWS_SCP_REMOTE_DIR="E:/NetConfig_Backup/DC01/F5-DN2",
+    )
+    def test_dn_windows_scp_remote_dirs(self):
+        from equipment.f5_variant import (
+            F5_DN1,
+            F5_DN2,
+            windows_remote_path,
+            windows_scp_config,
+        )
+
+        dn1 = windows_scp_config(F5_DN1)
+        dn2 = windows_scp_config(F5_DN2)
+        self.assertEqual(dn1["host"], "win-vm.example.com")
+        self.assertEqual(dn1["remote_parent"], "E:/NetConfig_Backup/DC01/F5-DN1")
+        self.assertEqual(dn2["remote_parent"], "E:/NetConfig_Backup/DC01/F5-DN2")
+
+        path = windows_remote_path(
+            dn1,
+            "2026-06-11",
+            "f5-dn1-host-20260611-120000.ucs",
+        )
+        self.assertEqual(
+            path,
+            "E:/NetConfig_Backup/DC01/F5-DN1/2026-06-11/f5-dn1-host-20260611-120000.ucs",
+        )
+
+    @override_settings(
+        F5_WINDOWS_SCP_HOST="win-vm.example.com",
+        F5_WINDOWS_SCP_USERNAME="scpuser",
+        F5_WINDOWS_SCP_PASSWORD="secret",
+        F5_WINDOWS_SCP_REMOTE_DIR="E:/NetConfig_Backup/DC01/F5",
+        F5_DN1_WINDOWS_SCP_REMOTE_DIR="",
+    )
+    def test_dn1_falls_back_to_f5_scp_credentials_and_remote(self):
+        from equipment.f5_variant import F5_DN1, windows_scp_config
+
+        cfg = windows_scp_config(F5_DN1)
+        self.assertEqual(cfg["remote_parent"], "E:/NetConfig_Backup/DC01/F5")

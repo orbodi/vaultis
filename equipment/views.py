@@ -12,7 +12,12 @@ from .forms import BackupScheduleForm
 from .job_history import jobs_history_payload
 from .models import BackupJob, BackupSchedule, Equipment, EquipmentHost
 from .f5_credentials import default_f5_credentials_configured, env_f5_user_password
-from .f5_variant import is_f5_family_slug, is_f5_ha_slug
+from .f5_variant import (
+    is_f5_family_slug,
+    is_f5_ha_equipment,
+    is_f5_ha_slug,
+    is_f5_standalone_equipment,
+)
 from .nethsm_credentials import default_nethsm_credentials_configured
 from .scheduler import compute_next_run, schedule_summary
 from .services import run_backup_job_async
@@ -54,10 +59,11 @@ def equipment_detail(request, pk: int):
         for j in jobs
     )
     slug = equipment.equipment_type.slug
+    adapter_key = equipment.equipment_type.adapter_key or ""
     is_nitrokey = slug == "nitrokey"
-    is_f5_ha = is_f5_ha_slug(slug)
-    is_f5_standalone = slug in ("f5-dn1", "f5-dn2")
-    is_f5_family = is_f5_family_slug(slug)
+    is_f5_standalone = is_f5_standalone_equipment(slug, adapter_key)
+    is_f5_ha = is_f5_ha_equipment(slug, adapter_key)
+    is_f5_family = is_f5_family_slug(slug) or is_f5_standalone
     is_arbor_aed = slug == "ddos"
     requires_api_credentials = is_nitrokey or is_f5_family
     if is_nitrokey:

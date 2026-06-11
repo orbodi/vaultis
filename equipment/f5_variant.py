@@ -44,6 +44,22 @@ def is_f5_ha_slug(slug: str) -> bool:
     return slug == "f5"
 
 
+def is_f5_standalone_slug(slug: str) -> bool:
+    return slug in ("f5-dn1", "f5-dn2")
+
+
+def is_f5_standalone_adapter(adapter_key: str) -> bool:
+    return ".f5_dn" in (adapter_key or "")
+
+
+def is_f5_standalone_equipment(slug: str, adapter_key: str) -> bool:
+    return is_f5_standalone_slug(slug) or is_f5_standalone_adapter(adapter_key)
+
+
+def is_f5_ha_equipment(slug: str, adapter_key: str) -> bool:
+    return slug == "f5" and not is_f5_standalone_equipment(slug, adapter_key)
+
+
 def variant_for_slug(slug: str) -> F5Variant:
     try:
         return BY_SLUG[slug]
