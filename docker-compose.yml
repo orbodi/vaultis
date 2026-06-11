@@ -57,8 +57,10 @@ services:
     volumes:
       - ${VAULTIS_HOST_DATA_DIR:-./data}:/app/data
       - ${VAULTIS_SECRETS_DIR:-./secrets}:/app/secrets:ro
-      # F5 HA : bind mount optionnel (sinon {VAULTIS_HOST_DATA_DIR}/backups/f5 via /app/data)
+      # F5 : chemins hôte → conteneur (F5_*_BACKUP_HOST_DIR dans .env)
       - ${F5_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5}:/app/data/backups/f5
+      - ${F5_DN1_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn1}:/app/data/backups/f5-dn1
+      - ${F5_DN2_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn2}:/app/data/backups/f5-dn2
       # Arbor AED : hôte → chemins fixes dans le conteneur (voir ARBOR_AED_SOURCE_HOST_* / _DIR_*)
       - ${ARBOR_AED_SOURCE_HOST_DC01:-${ARBOR_AED_SOURCE_DIR_DC01:-/tmp/vaultis-arbor-dc01-skip}}:/app/arbor/incoming/dc01:ro
       - ${ARBOR_AED_SOURCE_HOST_DC02:-${ARBOR_AED_SOURCE_DIR_DC02:-/tmp/vaultis-arbor-dc02-skip}}:/app/arbor/incoming/dc02:ro
@@ -102,6 +104,8 @@ services:
       - ${VAULTIS_HOST_DATA_DIR:-./data}:/app/data
       - ${VAULTIS_SECRETS_DIR:-./secrets}:/app/secrets:ro
       - ${F5_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5}:/app/data/backups/f5
+      - ${F5_DN1_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn1}:/app/data/backups/f5-dn1
+      - ${F5_DN2_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn2}:/app/data/backups/f5-dn2
       - ${ARBOR_AED_SOURCE_HOST_DC01:-${ARBOR_AED_SOURCE_DIR_DC01:-/tmp/vaultis-arbor-dc01-skip}}:/app/arbor/incoming/dc01:ro
       - ${ARBOR_AED_SOURCE_HOST_DC02:-${ARBOR_AED_SOURCE_DIR_DC02:-/tmp/vaultis-arbor-dc02-skip}}:/app/arbor/incoming/dc02:ro
     depends_on:
