@@ -330,7 +330,20 @@ ARBOR_AED_SOURCE_DIRS = {
 }
 ARBOR_AED_ACTIVE_DCS = os.environ.get("ARBOR_AED_ACTIVE_DCS", "").strip()
 _arbor_staging = os.environ.get("ARBOR_AED_STAGING_DIR", "").strip()
-ARBOR_AED_STAGING_DIR = Path(_arbor_staging) if _arbor_staging else BASE_DIR / "backups" / "arbor_aed" / "staging"
+ARBOR_AED_STAGING_DIR = (
+    Path(_arbor_staging)
+    if _arbor_staging
+    else BASE_DIR / "data" / "backups" / "arbor_aed" / "staging"
+)
+_arbor_archive_root = os.environ.get("ARBOR_AED_ARCHIVE_ROOT", "").strip()
+ARBOR_AED_ARCHIVE_ROOT = (
+    Path(_arbor_archive_root)
+    if _arbor_archive_root
+    else BASE_DIR / "data" / "backups" / "arbor_aed" / "archive"
+)
+ARBOR_AED_ARCHIVE_IN_SOURCE = os.environ.get(
+    "ARBOR_AED_ARCHIVE_IN_SOURCE", ""
+).lower() in ("1", "true", "yes")
 # Dossier mère distant SCP par DC (obligatoire pour chaque DC actif)
 ARBOR_AED_REMOTE_PARENT_DIRS = {
     "DC01": os.environ.get("ARBOR_AED_REMOTE_PARENT_DIR_DC01", "").strip(),
@@ -338,7 +351,7 @@ ARBOR_AED_REMOTE_PARENT_DIRS = {
 }
 ARBOR_AED_MOVE_SOURCE = os.environ.get("ARBOR_AED_MOVE_SOURCE", "").lower() in ("1", "true", "yes")
 ARBOR_AED_ARCHIVE_AFTER_UPLOAD = os.environ.get(
-    "ARBOR_AED_ARCHIVE_AFTER_UPLOAD", "true"
+    "ARBOR_AED_ARCHIVE_AFTER_UPLOAD", "false"
 ).lower() in ("1", "true", "yes")
 _arbor_archive_subdir = os.environ.get("ARBOR_AED_ARCHIVE_SUBDIR", "archive").strip()
 ARBOR_AED_ARCHIVE_SUBDIR = _arbor_archive_subdir or "archive"

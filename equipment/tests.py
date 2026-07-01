@@ -10,6 +10,7 @@ from equipment.adapters.nitrokey import Adapter as NitrokeyAdapter
 from equipment.f5_credentials import default_f5_credentials_configured
 from equipment.arbor_aed_config import (
     arbor_active_dcs,
+    arbor_archive_root_for_dc,
     arbor_source_dir_for_dc,
     normalize_dc_key,
 )
@@ -403,6 +404,18 @@ class ArborAedDcConfigTests(TestCase):
             self.assertEqual(resolved, container)
 
 
+    def test_archive_root_defaults_outside_incoming(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as src_dir:
+            src = Path(src_dir)
+            with override_settings(ARBOR_AED_ARCHIVE_IN_SOURCE=False):
+                root = arbor_archive_root_for_dc("DC01", src)
+            self.assertEqual(root.name, "DC01")
+            self.assertNotEqual(root.parent, src)
+
+
 class ArborAedAdapterTests(TestCase):
     @patch("equipment.adapters.arbor_aed.upload_tree", return_value=2)
     def test_run_backup_organizes_and_uploads(self, mock_upload):
@@ -431,6 +444,7 @@ class ArborAedAdapterTests(TestCase):
                     ARBOR_AED_ACTIVE_DCS="DC01",
                     ARBOR_AED_STAGING_DIR=Path(staging_dir),
                     ARBOR_AED_REMOTE_PARENT_DIRS={"DC01": "E:/Backups/AED/DC01"},
+                    ARBOR_AED_ARCHIVE_AFTER_UPLOAD=False,
                     NITROKEY_WINDOWS_SCP_HOST="172.16.12.187",
                     NITROKEY_WINDOWS_SCP_USERNAME="user",
                     NITROKEY_WINDOWS_SCP_PASSWORD="pass",
@@ -442,23 +456,34 @@ class ArborAedAdapterTests(TestCase):
         self.assertIn("Arbor AED", message)
         self.assertIn("DC01", message)
         self.assertIn("2026-06-03", message)
-        self.assertIn("archivé(s)", message)
+        self.assertIn("libéré(s)", message)
         self.assertFalse(
             (src / "arbor-backup-full.20260603T220003Z.manifest").exists()
-        )
-        self.assertTrue(
-            (
-                src
-                / "archive"
-                / "2026-06-03"
-                / "full"
-                / "arbor-backup-full.20260603T220003Z.manifest"
-            ).is_file()
         )
         mock_upload.assert_called_once()
 
 
 class ArborArchiveTests(TestCase):
+    def test_release_after_scp_removes_incoming_and_staging(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from equipment.arbor_aed_files import release_processed_files
+
+        with TemporaryDirectory() as src_dir, TemporaryDirectory() as staging_dir:
+            src = Path(src_dir)
+            staging = Path(staging_dir) / "DC01"
+            manifest = src / "arbor-backup-full.20260603T220003Z.manifest"
+            manifest.write_bytes(b"data")
+            files, _ = scan_arbor_source(src)
+            organize_into_staging(files, staging, move=False)
+
+            released = release_processed_files(files, src, staging)
+
+            self.assertEqual(released, 1)
+            self.assertFalse(manifest.exists())
+            self.assertFalse(staging.exists())
+
     def test_archive_after_copy_mode(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory

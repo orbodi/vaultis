@@ -202,7 +202,23 @@ def arbor_archive_after_upload() -> bool:
     return getattr(settings, "ARBOR_AED_ARCHIVE_AFTER_UPLOAD", True)
 
 
+def arbor_archive_root_for_dc(dc: str, source_dir: Path) -> Path:
+    """
+    Dossier d'archivage local après SCP.
+    Par défaut : zone writable sous data/backups (incoming Docker monté :ro).
+    ARBOR_AED_ARCHIVE_IN_SOURCE=true pour archiver dans {source}/archive/ (montage RW).
+    """
+    if getattr(settings, "ARBOR_AED_ARCHIVE_IN_SOURCE", False):
+        subdir = getattr(settings, "ARBOR_AED_ARCHIVE_SUBDIR", "archive") or "archive"
+        return source_dir / subdir
+    root = getattr(settings, "ARBOR_AED_ARCHIVE_ROOT", None)
+    if root is None:
+        root = Path(settings.BASE_DIR) / "data" / "backups" / "arbor_aed" / "archive"
+    return Path(root) / dc
+
+
 def arbor_archive_root_for_source(source_dir: Path) -> Path:
+    """Rétrocompat — préférer arbor_archive_root_for_dc."""
     subdir = getattr(settings, "ARBOR_AED_ARCHIVE_SUBDIR", "archive") or "archive"
     return source_dir / subdir
 

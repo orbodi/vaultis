@@ -54,6 +54,8 @@ services:
       ARBOR_AED_SOURCE_DIR_DC02: ${ARBOR_AED_SOURCE_DIR_DC02:-/app/arbor/incoming/dc02}
       ARBOR_AED_REMOTE_PARENT_DIR_DC01: ${ARBOR_AED_REMOTE_PARENT_DIR_DC01:-}
       ARBOR_AED_REMOTE_PARENT_DIR_DC02: ${ARBOR_AED_REMOTE_PARENT_DIR_DC02:-}
+      ARBOR_AED_STAGING_DIR: ${ARBOR_AED_STAGING_DIR:-/app/data/backups/arbor_aed/staging}
+      ARBOR_AED_ARCHIVE_ROOT: ${ARBOR_AED_ARCHIVE_ROOT:-/app/data/backups/arbor_aed/archive}
     volumes:
       - ${VAULTIS_HOST_DATA_DIR:-./data}:/app/data
       - ${VAULTIS_SECRETS_DIR:-./secrets}:/app/secrets:ro
@@ -62,8 +64,8 @@ services:
       - ${F5_DN1_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn1}:/app/data/backups/f5-dn1
       - ${F5_DN2_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn2}:/app/data/backups/f5-dn2
       # Arbor AED : hôte → chemins fixes dans le conteneur (voir ARBOR_AED_SOURCE_HOST_* / _DIR_*)
-      - ${ARBOR_AED_SOURCE_HOST_DC01:-${ARBOR_AED_SOURCE_DIR_DC01:-/tmp/vaultis-arbor-dc01-skip}}:/app/arbor/incoming/dc01:ro
-      - ${ARBOR_AED_SOURCE_HOST_DC02:-${ARBOR_AED_SOURCE_DIR_DC02:-/tmp/vaultis-arbor-dc02-skip}}:/app/arbor/incoming/dc02:ro
+      - ${ARBOR_AED_SOURCE_HOST_DC01:-${ARBOR_AED_SOURCE_DIR_DC01:-/tmp/vaultis-arbor-dc01-skip}}:/app/arbor/incoming/dc01
+      - ${ARBOR_AED_SOURCE_HOST_DC02:-${ARBOR_AED_SOURCE_DIR_DC02:-/tmp/vaultis-arbor-dc02-skip}}:/app/arbor/incoming/dc02
     depends_on:
       db:
         condition: service_healthy
@@ -100,14 +102,16 @@ services:
       ARBOR_AED_SOURCE_DIR_DC02: ${ARBOR_AED_SOURCE_DIR_DC02:-/app/arbor/incoming/dc02}
       ARBOR_AED_REMOTE_PARENT_DIR_DC01: ${ARBOR_AED_REMOTE_PARENT_DIR_DC01:-}
       ARBOR_AED_REMOTE_PARENT_DIR_DC02: ${ARBOR_AED_REMOTE_PARENT_DIR_DC02:-}
+      ARBOR_AED_STAGING_DIR: ${ARBOR_AED_STAGING_DIR:-/app/data/backups/arbor_aed/staging}
+      ARBOR_AED_ARCHIVE_ROOT: ${ARBOR_AED_ARCHIVE_ROOT:-/app/data/backups/arbor_aed/archive}
     volumes:
       - ${VAULTIS_HOST_DATA_DIR:-./data}:/app/data
       - ${VAULTIS_SECRETS_DIR:-./secrets}:/app/secrets:ro
       - ${F5_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5}:/app/data/backups/f5
       - ${F5_DN1_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn1}:/app/data/backups/f5-dn1
       - ${F5_DN2_BACKUP_HOST_DIR:-${VAULTIS_HOST_DATA_DIR:-./data}/backups/f5-dn2}:/app/data/backups/f5-dn2
-      - ${ARBOR_AED_SOURCE_HOST_DC01:-${ARBOR_AED_SOURCE_DIR_DC01:-/tmp/vaultis-arbor-dc01-skip}}:/app/arbor/incoming/dc01:ro
-      - ${ARBOR_AED_SOURCE_HOST_DC02:-${ARBOR_AED_SOURCE_DIR_DC02:-/tmp/vaultis-arbor-dc02-skip}}:/app/arbor/incoming/dc02:ro
+      - ${ARBOR_AED_SOURCE_HOST_DC01:-${ARBOR_AED_SOURCE_DIR_DC01:-/tmp/vaultis-arbor-dc01-skip}}:/app/arbor/incoming/dc01
+      - ${ARBOR_AED_SOURCE_HOST_DC02:-${ARBOR_AED_SOURCE_DIR_DC02:-/tmp/vaultis-arbor-dc02-skip}}:/app/arbor/incoming/dc02
     depends_on:
       db:
         condition: service_healthy

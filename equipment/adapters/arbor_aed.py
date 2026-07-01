@@ -3,6 +3,8 @@ Adaptateur Arbor AED (DDOS) — organisation locale des backups puis transfert S
 
 Un seul host équipement : les DC actifs (ARBOR_AED_ACTIVE_DCS) déterminent quels
 dossiers incoming sont traités (DC01, DC02, ou les deux).
+
+Après SCP Windows réussi : suppression des fichiers incoming (libération d'espace).
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ from typing import TYPE_CHECKING
 from equipment.arbor_aed_config import (
     arbor_active_dcs,
     arbor_archive_after_upload,
-    arbor_archive_root_for_source,
+    arbor_archive_root_for_dc,
     arbor_move_source_files,
     arbor_remote_parent_for_dc,
     arbor_source_dir_for_dc,
@@ -24,9 +26,10 @@ from equipment.arbor_aed_config import (
     scp_config_from_settings,
 )
 from equipment.arbor_aed_files import (
-    archive_processed_files,
+    archive_from_staging,
     distinct_dates,
     organize_into_staging,
+    release_processed_files,
     scan_arbor_source,
 )
 from equipment.scp_transfer import upload_tree
@@ -50,6 +53,7 @@ class Adapter:
         dc_summaries: list[str] = []
         total_files = 0
         total_uploaded = 0
+        total_released = 0
         any_processed = False
 
         for dc in active_dcs:
@@ -120,31 +124,40 @@ class Adapter:
 
             archived = 0
             if arbor_archive_after_upload():
+                archive_root = arbor_archive_root_for_dc(dc, source)
                 try:
-                    archived = archive_processed_files(
-                        files,
-                        source,
-                        staging_dc,
-                        used_move=move_source,
-                        archive_root=arbor_archive_root_for_source(source),
-                    )
+                    archived = archive_from_staging(files, staging_dc, archive_root)
                     logger.info(
-                        "Arbor AED %s: %s fichier(s) archivé(s) dans %s",
+                        "Arbor AED %s: %s fichier(s) copié(s) vers archive %s",
                         dc,
                         archived,
-                        arbor_archive_root_for_source(source),
+                        archive_root,
                     )
                 except OSError as exc:
                     raise BackupAdapterError(
                         f"Archivage local échoué pour {dc} : {exc}"
                     ) from exc
 
+            try:
+                released = release_processed_files(files, source, staging_dc)
+                total_released += released
+                logger.info(
+                    "Arbor AED %s: %s fichier(s) supprimé(s) de %s (espace libéré)",
+                    dc,
+                    released,
+                    source,
+                )
+            except (OSError, PermissionError) as exc:
+                raise BackupAdapterError(
+                    f"SCP Windows réussi pour {dc} mais libération espace impossible : {exc}"
+                ) from exc
+
             full_count = sum(1 for f in files if f.backup_type == "full")
             inc_count = sum(1 for f in files if f.backup_type == "inc")
             total_files += len(files)
             part = (
                 f"{dc}: {len(files)} fichier(s) (full {full_count}, inc {inc_count}), "
-                f"dates {', '.join(dates)}, {dc_uploaded} envoyé(s)"
+                f"dates {', '.join(dates)}, {dc_uploaded} envoyé(s), {released} libéré(s)"
             )
             if archived:
                 part += f", {archived} archivé(s) localement"
@@ -160,7 +173,8 @@ class Adapter:
         inactive = [dc for dc in ("DC01", "DC02") if dc not in active_dcs]
         msg = (
             f"Arbor AED — DC actifs: {', '.join(active_dcs)} — "
-            f"{total_files} fichier(s), {total_uploaded} envoyé(s). "
+            f"{total_files} fichier(s), {total_uploaded} envoyé(s), "
+            f"{total_released} libéré(s) en source. "
             + " | ".join(dc_summaries)
         )
         if inactive:

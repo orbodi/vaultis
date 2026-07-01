@@ -11,10 +11,14 @@ Exemples de noms ::
 
 from __future__ import annotations
 
+import logging
+import os
 import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # full | full-signatures -> full/ ; inc | new-signatures -> inc/
 _ARBOR_NAME_RE = re.compile(
@@ -95,6 +99,67 @@ def distinct_dates(files: list[ArborBackupFile]) -> list[str]:
     return sorted({f.folder_date for f in files})
 
 
+def archive_from_staging(
+    files: list[ArborBackupFile],
+    staging_dc: Path,
+    archive_root: Path,
+) -> int:
+    """Copie optionnelle staging → archive locale (après SCP Windows)."""
+    archived = 0
+    for item in files:
+        staging_file = staging_dc / item.folder_date / item.backup_type / item.path.name
+        if not staging_file.is_file():
+            continue
+        dest_dir = archive_root / item.folder_date / item.backup_type
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / item.path.name
+        if dest.exists():
+            dest.unlink()
+        shutil.copy2(str(staging_file), dest)
+        archived += 1
+    return archived
+
+
+def release_processed_files(
+    files: list[ArborBackupFile],
+    source_dir: Path,
+    staging_dc: Path,
+) -> int:
+    """
+    Après SCP Windows réussi : supprime les fichiers incoming et le staging
+    pour libérer l'espace disque.
+    """
+    if not os.access(source_dir, os.W_OK):
+        raise PermissionError(
+            f"Dossier incoming non writable : {source_dir}. "
+            "Le montage Docker incoming doit être en lecture-écriture."
+        )
+
+    released = 0
+    errors: list[str] = []
+    for item in files:
+        if not item.path.is_file():
+            continue
+        try:
+            item.path.unlink()
+            released += 1
+            logger.info("Arbor: fichier source supprimé %s", item.path.name)
+        except OSError as exc:
+            errors.append(f"{item.path.name}: {exc}")
+
+    if staging_dc.exists():
+        shutil.rmtree(staging_dc)
+
+    if errors:
+        sample = "; ".join(errors[:3])
+        extra = f" (+{len(errors) - 3} autres)" if len(errors) > 3 else ""
+        raise OSError(
+            f"Libération espace incomplète dans {source_dir} : {sample}{extra}"
+        )
+
+    return released
+
+
 def archive_processed_files(
     files: list[ArborBackupFile],
     source_dir: Path,
@@ -104,17 +169,23 @@ def archive_processed_files(
     archive_root: Path | None = None,
 ) -> int:
     """
-    Déplace les fichiers traités vers source_dir/archive/YYYY-MM-DD/{full|inc}/.
-    Retourne le nombre de fichiers archivés.
+    Archive les fichiers traités vers archive_root/YYYY-MM-DD/{full|inc}/.
+    Copie depuis le staging (ou la source) ; supprime la source incoming si writable.
     """
     root = archive_root if archive_root is not None else source_dir / "archive"
     archived = 0
+    source_writable = os.access(source_dir, os.W_OK)
+    left_in_incoming = 0
 
     for item in files:
-        src = item.path
-        if used_move:
-            src = staging_dc / item.folder_date / item.backup_type / item.path.name
-        if not src.is_file():
+        staging_file = staging_dc / item.folder_date / item.backup_type / item.path.name
+        if used_move and staging_file.is_file():
+            src = staging_file
+        elif staging_file.is_file():
+            src = staging_file
+        elif item.path.is_file():
+            src = item.path
+        else:
             continue
 
         dest_dir = root / item.folder_date / item.backup_type
@@ -122,7 +193,35 @@ def archive_processed_files(
         dest = dest_dir / item.path.name
         if dest.exists():
             dest.unlink()
-        shutil.move(str(src), dest)
+        shutil.copy2(str(src), dest)
+
+        if staging_file.is_file() and staging_file != src:
+            staging_file.unlink()
+        elif staging_file.is_file():
+            staging_file.unlink()
+
+        if item.path.is_file():
+            if source_writable:
+                try:
+                    item.path.unlink()
+                except OSError as exc:
+                    logger.warning(
+                        "Arbor: suppression source impossible %s : %s",
+                        item.path,
+                        exc,
+                    )
+                    left_in_incoming += 1
+            else:
+                left_in_incoming += 1
+
         archived += 1
+
+    if left_in_incoming:
+        logger.warning(
+            "Arbor: %s fichier(s) restent dans %s (dossier incoming non writable). "
+            "Nettoyage manuel sur l'hôte ou ARBOR_AED_ARCHIVE_IN_SOURCE avec montage RW.",
+            left_in_incoming,
+            source_dir,
+        )
 
     return archived
