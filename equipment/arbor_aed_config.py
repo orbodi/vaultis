@@ -126,9 +126,10 @@ def assert_arbor_source_readable(source_dir: Path) -> None:
         f"{len(unreadable)} fichier(s) Arbor AED non lisible(s) dans {source_dir} "
         f"(ex. {sample}{extra}). "
         "Cause fréquente : fichiers en 600 appartenant à uid 1003, conteneur Vaultis en uid 1000. "
-        "Sur l'hôte : find /home/mdoman/net-backups -type f -exec chmod 644 {} \\; "
-        "et find /home/mdoman/net-backups -type d -exec chmod 755 {} \\; "
-        "(adapter le chemin si besoin). Puis relancer la sauvegarde."
+        "Correction : au redémarrage du conteneur (fix automatique), ou "
+        "scripts/fix-arbor-incoming-permissions.sh --env .env / "
+        "docker compose exec -u root web /app/docker/fix-arbor-incoming-permissions.sh --inside-container. "
+        "Puis relancer la sauvegarde."
     )
 
 

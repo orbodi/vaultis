@@ -56,6 +56,8 @@ services:
       ARBOR_AED_REMOTE_PARENT_DIR_DC02: ${ARBOR_AED_REMOTE_PARENT_DIR_DC02:-}
       ARBOR_AED_STAGING_DIR: ${ARBOR_AED_STAGING_DIR:-/app/data/backups/arbor_aed/staging}
       ARBOR_AED_ARCHIVE_ROOT: ${ARBOR_AED_ARCHIVE_ROOT:-/app/data/backups/arbor_aed/archive}
+      ARBOR_AED_FIX_PERMISSIONS_ON_START: ${ARBOR_AED_FIX_PERMISSIONS_ON_START:-true}
+      VAULTIS_UID: ${VAULTIS_UID:-1000}
     volumes:
       - ${VAULTIS_HOST_DATA_DIR:-./data}:/app/data
       - ${VAULTIS_SECRETS_DIR:-./secrets}:/app/secrets:ro
@@ -104,6 +106,8 @@ services:
       ARBOR_AED_REMOTE_PARENT_DIR_DC02: ${ARBOR_AED_REMOTE_PARENT_DIR_DC02:-}
       ARBOR_AED_STAGING_DIR: ${ARBOR_AED_STAGING_DIR:-/app/data/backups/arbor_aed/staging}
       ARBOR_AED_ARCHIVE_ROOT: ${ARBOR_AED_ARCHIVE_ROOT:-/app/data/backups/arbor_aed/archive}
+      ARBOR_AED_FIX_PERMISSIONS_ON_START: ${ARBOR_AED_FIX_PERMISSIONS_ON_START:-true}
+      VAULTIS_UID: ${VAULTIS_UID:-1000}
     volumes:
       - ${VAULTIS_HOST_DATA_DIR:-./data}:/app/data
       - ${VAULTIS_SECRETS_DIR:-./secrets}:/app/secrets:ro

@@ -1,11 +1,15 @@
 #!/bin/sh
 set -e
 
+. /app/docker/run-as-appuser.sh
+
 INTERVAL="${BACKUP_SCHEDULER_INTERVAL_SECONDS:-60}"
+
+/app/docker/fix-arbor-on-start.sh
 
 if [ -n "${DATABASE_URL}${POSTGRES_HOST}" ]; then
   echo "Planificateur — attente de PostgreSQL…"
-  until python -c "
+  until run_as_appuser python -c "
 import os, sys
 url = os.environ.get('DATABASE_URL', '').strip()
 if not url:
@@ -25,14 +29,14 @@ except Exception:
   done
 fi
 
-. /app/docker/check-backup-dirs.sh
+run_as_appuser sh -c '. /app/docker/check-backup-dirs.sh'
 
 echo "Planificateur — migrations Django…"
-python manage.py migrate --noinput
+run_as_appuser python manage.py migrate --noinput
 
 echo "Planificateur Vaultis — intervalle ${INTERVAL}s (TIME_ZONE=${DJANGO_TIME_ZONE:-UTC})"
 
 while true; do
-  python manage.py run_backup_schedules || echo "run_backup_schedules: erreur (voir logs)."
+  run_as_appuser python manage.py run_backup_schedules || echo "run_backup_schedules: erreur (voir logs)."
   sleep "${INTERVAL}"
 done

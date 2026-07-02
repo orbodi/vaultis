@@ -1,11 +1,15 @@
 #!/bin/sh
 set -e
 
-. /app/docker/check-backup-dirs.sh
+. /app/docker/run-as-appuser.sh
+
+/app/docker/fix-arbor-on-start.sh
+
+run_as_appuser sh -c '. /app/docker/check-backup-dirs.sh'
 
 if [ -n "${DATABASE_URL}${POSTGRES_HOST}" ]; then
   echo "Attente de PostgreSQL…"
-  until python -c "
+  until run_as_appuser python -c "
 import os, sys
 url = os.environ.get('DATABASE_URL', '').strip()
 if not url:
@@ -25,9 +29,9 @@ except Exception:
   done
 fi
 
-python manage.py migrate --noinput
-python manage.py recover_stale_backup_jobs --minutes "${BACKUP_JOB_STALE_MINUTES:-30}"
-python manage.py collectstatic --noinput --clear
+run_as_appuser python manage.py migrate --noinput
+run_as_appuser python manage.py recover_stale_backup_jobs --minutes "${BACKUP_JOB_STALE_MINUTES:-30}"
+run_as_appuser python manage.py collectstatic --noinput --clear
 
 static_count=$(find /app/staticfiles -type f 2>/dev/null | wc -l)
 echo "Fichiers statiques collectés : ${static_count}"
@@ -40,10 +44,10 @@ PORT="${WEB_PORT:-8010}"
 echo "Démarrage de l'application sur le port ${PORT}…"
 
 if [ "${DJANGO_DEBUG}" = "true" ] || [ "${DJANGO_DEBUG}" = "1" ]; then
-  exec python manage.py runserver "0.0.0.0:${PORT}"
+  exec_as_appuser python manage.py runserver "0.0.0.0:${PORT}"
 fi
 
-exec gunicorn config.wsgi:application \
+exec_as_appuser gunicorn config.wsgi:application \
   --bind "0.0.0.0:${PORT}" \
   --workers "${GUNICORN_WORKERS:-2}" \
   --timeout "${GUNICORN_TIMEOUT:-7200}"
