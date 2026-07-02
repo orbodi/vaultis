@@ -1,0 +1,388 @@
+================================================================================
+  VAULTIS — SPECIFICATIONS FONCTIONNELLES ET TECHNIQUES
+  Application de sauvegarde d'equipements reseau
+  Version document : juillet 2026 (alignee sur le depot vaultis)
+================================================================================
+
+1. PRESENTATION
+--------------------------------------------------------------------------------
+
+1.1 Objectif
+  Vaultis est une application web Django permettant d'inventorier des equipements
+  reseau / securite et d'orchestrer des sauvegardes de configuration via des
+  adaptateurs Python modulaires (equipment.adapters.*).
+
+1.2 Perimetre fonctionnel
+  - Consultation du parc d'equipements
+  - Lancement manuel de sauvegardes
+  - Planification automatique (quotidienne, hebdomadaire, mensuelle)
+  - Historique des operations (statut, message, utilisateur, host)
+  - Administration Django (types, equipements, hosts, utilisateurs)
+
+1.3 Types d'equipements supportes
+
+  | Type (slug)     | Adaptateur                    | Mode              |
+  |-----------------|-------------------------------|-------------------|
+  | nitrokey        | equipment.adapters.nitrokey   | API NetHSM reelle |
+  | ddos            | equipment.adapters.arbor_aed  | Fichiers + SCP    |
+  | f5              | equipment.adapters.f5         | HA + SSH UCS      |
+  | f5-dn1          | equipment.adapters.f5_dn1     | SSH UCS standalone|
+  | f5-dn2          | equipment.adapters.f5_dn2     | SSH UCS standalone|
+  | palo-alto, etc. | stub (adapter_key vide)       | Echec en prod     |
+
+1.4 Utilisateurs
+  - Operateur : authentification requise, lance des sauvegardes, consulte
+    l'historique, configure les planifications sur la fiche equipement.
+  - Administrateur : acces /admin/ pour gerer types, equipements, hosts,
+    utilisateurs et parametres JSON (extra) par equipement.
+
+
+2. SPECIFICATIONS FONCTIONNELLES
+--------------------------------------------------------------------------------
+
+2.1 Modele metier
+
+  EquipmentType
+    - slug, name, description
+    - adapter_key : module Python (ex. equipment.adapters.f5_dn2)
+
+  Equipment
+    - name, equipment_type, extra (JSON optionnel)
+    - Un equipement possede zero ou plusieurs EquipmentHost
+
+  EquipmentHost
+    - label, address (IP ou FQDN), sort_order
+    - Point de management pour les sauvegardes ciblees
+
+  BackupJob
+    - equipment, equipment_host (optionnel)
+    - status : pending | running | success | failed
+    - trigger : manual | scheduled
+    - message, started_at, finished_at, triggered_by
+
+  BackupSchedule
+    - equipment (OneToOne), is_enabled, frequency, run_time
+    - weekday (hebdo), day_of_month (mensuel, 1-28)
+    - equipment_host (si plusieurs hosts)
+    - next_run_at, last_run_at
+
+2.2 Parcours utilisateur - liste des equipements
+  - URL : /
+  - Affiche tous les equipements avec leur type
+  - Lien vers la fiche detail
+
+2.3 Parcours utilisateur - fiche equipement
+  - URL : /equipment/<id>/
+  - Informations : nom, type, hosts configures
+  - Bandeau contextuel selon le type (F5 HA, F5 standalone, Arbor AED)
+  - Formulaire sauvegarde manuelle :
+      * Selection du host (si requis)
+      * Saisie identifiants API (Nitrokey / F5) ou utilisation des identifiants
+        par defaut du serveur (.env)
+      * Confirmation modale avant lancement
+      * Execution asynchrone (pas de blocage HTTP pendant tmsh / SCP)
+  - Historique des 5 derniers jobs + polling JSON pour mise a jour temps reel
+  - Formulaire planification automatique
+
+2.4 Regles de selection du host
+
+  | Type              | Selection host UI                           |
+  |-------------------|---------------------------------------------|
+  | Arbor AED (ddos)  | Non - DC pilotes par ARBOR_AED_ACTIVE_DCS  |
+  | F5 HA (f5)        | Non - detection membre actif via API        |
+  | F5-DN1 / F5-DN2   | Oui si plusieurs hosts ; auto si un seul    |
+  | Nitrokey          | Oui si plusieurs hosts                      |
+  | Autres            | Oui si plusieurs hosts                      |
+
+2.5 Sauvegarde manuelle - comportement commun
+  1. Creation d'un BackupJob (status=running)
+  2. Lancement en thread arriere-plan (run_backup_job_async)
+  3. Resolution de l'adaptateur via EquipmentType.adapter_key
+  4. Execution adapter.run_backup(job)
+  5. Mise a jour status success/failed + message + finished_at
+  6. Erreurs metier (BackupAdapterError) : message explicite a l'utilisateur
+  7. Erreurs techniques : message generique "Erreur technique." + stack trace
+     dans les logs
+
+2.6 Planification automatique
+  - Service scheduler (conteneur Docker dedie, boucle periodique)
+  - Frequences : daily, weekly, monthly
+  - Fuseau : DJANGO_TIME_ZONE / TIME_ZONE
+  - Utilise les identifiants par defaut du .env (pas de saisie formulaire)
+  - Validations prealables :
+      * Nitrokey : NITROKEY_NETHSM_* configures
+      * F5 : F5_SSH_* configures
+      * F5 HA : au moins un host en administration
+      * Host requis pour les types non ddos/f5 HA
+
+2.7 Specifications par adaptateur
+
+  2.7.1 Nitrokey / NetHSM
+    - Appel POST https://{host}/api/v1/system/backup
+    - Authentification Basic (user/password)
+    - Fichier .bkp enregistre sous NITROKEY_BACKUP_ROOT
+    - Nom : YYYY-MM-DD_HH-MM-SS_nethsm_{ip}.bkp
+    - Transfert optionnel Windows : SMB, SCP ou copie locale
+      (NITROKEY_TRANSFER_MODE)
+    - Identifiants : formulaire (ponctuel) ou .env (defaut)
+
+  2.7.2 Arbor AED (slug ddos)
+    - Pas d'API : lecture de fichiers arbor-backup-* dans dossiers incoming
+    - DC actifs : ARBOR_AED_ACTIVE_DCS (DC01, DC02 ou les deux)
+    - Classification par nom :
+        full  : arbor-backup-full.*, arbor-backup-full-signatures.*
+        inc   : arbor-backup-inc.*, arbor-backup-new-signatures.*
+    - Date dossier extraite du segment YYYYMMDD dans le nom
+    - Flux :
+        1. Scan dossier incoming par DC
+        2. Copie (ou deplacement) vers staging temporaire
+        3. SCP recursif vers Windows : {REMOTE_PARENT}/{date}/{full|inc}/
+        4. Archivage local optionnel (ARBOR_AED_ARCHIVE_AFTER_UPLOAD, defaut false)
+        5. Apres SCP reussi : suppression fichiers incoming + staging
+    - Dossier vide ou sans fichiers reconnus :
+        * DC seul actif vide -> job ECHOUE
+        * Message : "Aucun fichier a traiter pour les DC actifs (...)"
+        * Un DC vide + un DC avec fichiers -> succes partiel (DC vide ignore)
+    - Fichiers non reconnus : ignores, comptes dans le message
+
+  2.7.3 F5 BIG-IP HA (slug f5)
+    - Detection membre actif : API iControl GET /mgmt/tm/cm/device
+    - SSH sur IP management active
+    - tmsh save sys ucs -> SFTP telechargement -> tmsh delete sys ucs
+    - SCP optionnel vers Windows
+    - Credentials : F5_SSH_* / F5_API_* (meme couple pour API et SSH)
+    - Mode demo uniquement si DEBUG=true et pas de credentials SSH
+
+  2.7.4 F5-DN1 / F5-DN2 (standalone)
+    - Memes credentials et integration SSH que F5 HA (F5_INTEGRATION, F5_SSH_*)
+    - Pas de detection HA : SSH direct sur l'IP du host configure
+    - Chemins de stockage distincts : F5_DN1_BACKUP_* / F5_DN2_BACKUP_*
+    - Dossiers Windows SCP distincts : F5_DN1_WINDOWS_SCP_REMOTE_DIR, etc.
+    - Pas de mode demo : SSH obligatoire, echec si credentials absents
+
+  2.7.5 Stub (types non configures)
+    - adapter_key vide ou module introuvable -> adaptateur stub
+    - En production (DEBUG=false) : ECHEC avec message demandant de configurer
+      adapter_key dans l'administration Django
+    - En developpement (DEBUG=true) : succes simule
+
+2.8 Messages utilisateur (historique)
+  - Succes : message detaille retourne par l'adaptateur (taille fichier, chemin
+    distant, compteurs Arbor, etc.)
+  - Echec fonctionnel : texte de BackupAdapterError
+  - Echec technique : "Erreur technique."
+
+
+3. SPECIFICATIONS TECHNIQUES
+--------------------------------------------------------------------------------
+
+3.1 Stack logicielle
+  - Python 3.12 (image Docker)
+  - Django 5.x
+  - PostgreSQL 16 (production Docker) ou SQLite (dev local sans Docker)
+  - Gunicorn (production)
+  - Bibliotheques : paramiko (SSH/SFTP/SCP), pysmb (SMB), whitenoise (static),
+    psycopg3
+
+3.2 Architecture applicative
+
+  config/           Parametres Django (settings, settings_prod, urls)
+  equipment/        Modeles, vues, services, scheduler, adaptateurs
+  templates/        Interface HTML (Bootstrap)
+  static/           CSS, JavaScript (polling historique, modale backup)
+  docker/           entrypoint.sh, scheduler-loop.sh, check-backup-dirs.sh
+
+  Pattern adaptateur :
+    equipment/adapters/registry.py -> get_adapter(adapter_key)
+    Chaque adaptateur expose une classe Adapter avec run_backup(job) -> str
+
+3.3 Deploiement Docker (docker-compose.yml)
+
+  Services :
+    db          PostgreSQL 16, volume POSTGRES_HOST_DATA_DIR
+    web         Application Gunicorn, port WEB_PORT (defaut 8010)
+    scheduler   Boucle planification, meme image que web
+
+  Volumes principaux (web + scheduler) :
+    VAULTIS_HOST_DATA_DIR        -> /app/data
+    VAULTIS_SECRETS_DIR          -> /app/secrets (ro)
+    F5_BACKUP_HOST_DIR           -> /app/data/backups/f5
+    F5_DN1_BACKUP_HOST_DIR       -> /app/data/backups/f5-dn1
+    F5_DN2_BACKUP_HOST_DIR       -> /app/data/backups/f5-dn2
+    ARBOR_AED_SOURCE_HOST_DC01   -> /app/arbor/incoming/dc01 (rw)
+    ARBOR_AED_SOURCE_HOST_DC02   -> /app/arbor/incoming/dc02 (rw)
+
+  Utilisateur conteneur : appuser (uid 1000)
+
+  Timeouts :
+    GUNICORN_TIMEOUT : defaut 7200 s (sauvegardes F5 / Arbor volumineuses)
+    F5_SSH_SAVE_TIMEOUT : defaut 7200 s
+
+3.4 URLs HTTP
+
+  /                           Liste equipements
+  /equipment/<pk>/            Fiche detail
+  /equipment/<pk>/backup/     POST - lancement sauvegarde
+  /equipment/<pk>/schedule/   POST - enregistrement planification
+  /equipment/<pk>/jobs.json   GET - historique JSON (polling)
+  /admin/                     Administration Django
+
+3.5 Execution asynchrone des jobs
+  - run_backup_job_async : thread daemon par job
+  - close_old_connections() avant acces DB dans le thread
+  - L'interface affiche une overlay de progression et interroge jobs.json
+
+3.6 Logging
+  - Niveau : DJANGO_LOG_LEVEL (defaut INFO en prod)
+  - Sortie : stdout (docker compose logs)
+  - Evenements logues : demarrage worker, adaptateur resolu, etapes F5/Arbor,
+    succes/echec fonctionnel, exceptions techniques
+
+3.7 Securite
+  - Authentification Django obligatoire pour l'interface operateur
+  - CSRF sur les formulaires POST
+  - DJANGO_SECRET_KEY obligatoire en production
+  - DJANGO_ALLOWED_HOSTS, DJANGO_CSRF_TRUSTED_ORIGINS pour acces par IP/HTTPS
+  - Secrets : .env et/ou fichiers sous /app/secrets (montage ro)
+  - Mots de passe formulaire backup : non persistes en base
+    (attribut transient job._backup_credentials)
+  - Certificats TLS equipements : NITROKEY_NETHSM_VERIFY_TLS, F5_API_VERIFY_TLS
+    (defaut false pour certificats internes)
+
+3.8 Gestion des erreurs
+  - BackupAdapterError : erreur metier controlee, message utilisateur
+  - Exception non geree : status failed + log exception
+  - Stub en production : refuse les sauvegardes sans adaptateur configure
+
+
+4. CONFIGURATION - VARIABLES D'ENVIRONNEMENT
+--------------------------------------------------------------------------------
+
+4.1 Django / infrastructure
+  DJANGO_SETTINGS_MODULE      config.settings_prod (Docker) | config.settings (dev)
+  DJANGO_SECRET_KEY           Cle secrete (obligatoire prod)
+  DJANGO_DEBUG                true | false
+  DJANGO_ALLOWED_HOSTS        Hotes autorises (virgules)
+  DJANGO_CSRF_TRUSTED_ORIGINS Origines CSRF
+  DJANGO_TIME_ZONE            Fuseau horaire (ex. UTC, Europe/Paris)
+  DATABASE_URL                PostgreSQL (Docker)
+  POSTGRES_*                  Alternative DATABASE_URL
+  WEB_PORT                    Port expose (defaut 8010)
+  VAULTIS_HOST_DATA_DIR       Donnees applicatives hote
+  VAULTIS_SECRETS_DIR         Secrets hote -> /app/secrets
+  GUNICORN_TIMEOUT            Timeout requetes Gunicorn (s)
+
+4.2 Nitrokey
+  NITROKEY_NETHSM_USER / NITROKEY_NETHSM_PASSWORD
+  NITROKEY_NETHSM_USER_FILE / NITROKEY_NETHSM_PASSWORD_FILE
+  NITROKEY_NETHSM_VERIFY_TLS
+  NITROKEY_BACKUP_ROOT
+  NITROKEY_TRANSFER_MODE        auto | smb | scp | dir | none
+  NITROKEY_WINDOWS_TRANSFER_DIR
+  NITROKEY_WINDOWS_SMB_*
+  NITROKEY_WINDOWS_SCP_*
+
+4.3 F5 (HA + DN - credentials communs)
+  F5_INTEGRATION              ssh (obligatoire prod)
+  F5_SSH_USER / F5_SSH_PASSWORD (ou F5_API_*, fichiers secrets)
+  F5_SSH_PORT                 defaut 22
+  F5_SSH_SAVE_TIMEOUT         defaut 7200
+  F5_UCS_DEVICE_DIR           defaut /var/local/ucs
+  F5_API_VERIFY_TLS
+  F5_BACKUP_HOST_DIR / F5_BACKUP_ROOT
+  F5_WINDOWS_SCP_*            (repli NITROKEY_WINDOWS_SCP_*)
+
+  F5-DN1 specifique :
+    F5_DN1_BACKUP_HOST_DIR, F5_DN1_BACKUP_ROOT
+    F5_DN1_WINDOWS_SCP_REMOTE_DIR
+
+  F5-DN2 specifique :
+    F5_DN2_BACKUP_HOST_DIR, F5_DN2_BACKUP_ROOT
+    F5_DN2_WINDOWS_SCP_REMOTE_DIR
+
+4.4 Arbor AED
+  ARBOR_AED_ACTIVE_DCS                       DC01, DC02 ou DC01,DC02
+  ARBOR_AED_SOURCE_HOST_DC01 / _DC02         Chemin hote (bind mount)
+  ARBOR_AED_SOURCE_DIR_DC01 / _DC02          Chemin conteneur (/app/arbor/incoming/...)
+  ARBOR_AED_REMOTE_PARENT_DIR_DC01 / _DC02   Dossier mere Windows par DC
+  ARBOR_AED_STAGING_DIR                      Staging temporaire
+  ARBOR_AED_ARCHIVE_ROOT                     Archive locale optionnelle
+  ARBOR_AED_ARCHIVE_AFTER_UPLOAD             defaut false
+  ARBOR_AED_ARCHIVE_IN_SOURCE                true pour archiver dans incoming/archive
+  ARBOR_AED_MOVE_SOURCE                      true = deplacer au lieu de copier
+  ARBOR_AED_SCP_*                            (repli NITROKEY_WINDOWS_SCP_*)
+
+
+5. FLUX TECHNIQUES DETAILLES
+--------------------------------------------------------------------------------
+
+5.1 F5 SSH (HA et DN)
+  1. Resolution IP cible (API HA ou host admin)
+  2. f5_credentials() : formulaire > extra equipement > .env
+  3. Paramiko SSH connect
+  4. tmsh save sys ucs {nom}
+  5. SFTP get /var/local/ucs/{nom} -> backup_root local
+  6. tmsh delete sys ucs {nom}
+  7. SCP optionnel vers Windows (E:/.../YYYY-MM-DD/fichier.ucs)
+  8. Message : UCS enregistre (+ transfere si SCP OK)
+
+5.2 Arbor AED
+  1. arbor_active_dcs()
+  2. Pour chaque DC : scan_arbor_source -> organize_into_staging
+  3. upload_tree (paramiko SFTP) par date et type full/inc
+  4. archive_from_staging (si active)
+  5. release_processed_files : suppression incoming + staging
+  6. Message agrege par DC
+
+5.3 Nitrokey
+  1. POST backup API -> flux octet-stream
+  2. Ecriture fichier local
+  3. Transfert Windows selon NITROKEY_TRANSFER_MODE
+
+
+6. ADMINISTRATION DJANGO
+--------------------------------------------------------------------------------
+
+  Modeles administrables :
+    - EquipmentType (slug, adapter_key obligatoire pour prod)
+    - Equipment (+ champ extra JSON)
+    - EquipmentHost
+    - BackupJob (lecture)
+    - BackupSchedule
+    - Utilisateurs / groupes
+
+  Points critiques :
+    - adapter_key doit pointer vers un module valide
+      (ex. equipment.adapters.f5_dn2)
+    - Un slug incorrect (ex. dns sans adapter) provoque un echec explicite
+    - Hosts de management : IPs des equipements F5, Nitrokey, etc.
+
+
+7. TESTS ET QUALITE
+--------------------------------------------------------------------------------
+
+  Commande : python manage.py test
+
+  Couverture principale :
+    - Classification fichiers Arbor
+    - Config DC Arbor, resolution chemins conteneur/hote
+    - Adaptateurs F5 (HA, DN1), Nitrokey, Arbor
+    - Services backup, planification, credentials
+    - Stub en production
+
+
+8. PREREQUIS EXPLOITATION
+--------------------------------------------------------------------------------
+
+  - Docker + Docker Compose (recommande)
+  - Reseau : acces depuis conteneur web vers equipements (SSH F5, API NetHSM)
+    et VM Windows (SCP/SMB port 22)
+  - Permissions fichiers :
+      * F5 backup dirs : chown 1000:1000, chmod 775
+      * Arbor incoming : lisible/ecrivable par uid 1000 (chmod 644 fichiers si uid 1003)
+  - Apres modification .env : docker compose up -d --force-recreate web scheduler
+  - Migrations : docker compose exec web python manage.py migrate
+
+================================================================================
+  Fin du document - Vaultis
+================================================================================

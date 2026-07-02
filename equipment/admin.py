@@ -360,6 +360,6 @@ class BackupJobAdmin(admin.ModelAdmin):
         )
 
 
-admin.site.site_header = "Device backup — administration"
-admin.site.site_title = "Admin"
+admin.site.site_header = "vaultis — administration"
+admin.site.site_title = "vaultis admin"
 admin.site.index_title = "Gestion des équipements et des sauvegardes"
